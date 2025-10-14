@@ -159,17 +159,4 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
     }
 
 
-def compliance_topsis(rga, rge, rgr, *, weights=None):
-    if weights is None:
-        weights = np.array([1 / 3, 1 / 3, 1 / 3], dtype=float)
-    else:
-        weights = np.asarray(weights, dtype=float)
-        if weights.shape != (3,):
-            raise ValueError("weights must be an array‐like of length 3.")
-
-    mean_x = np.mean(rga)
-    mean_y = np.mean(rge)
-    mean_z = np.mean(rgr)
-
-
 

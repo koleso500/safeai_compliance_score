@@ -2,13 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+from matplotlib.gridspec import GridSpec
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
 from safeai_files.check_compliance import safeai_values
-from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
+from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram, save_model_metrics
 
 # Data loading and basic information
 data = pd.read_excel("employee.xlsx")
@@ -49,6 +50,7 @@ log_model.fit(x_train, y_train_cl)
 y_prob_lr = log_model.predict_proba(x_test)[:, 1]
 results_log = safeai_values(x_train, x_test, y_test_cl, y_prob_lr, log_model, "Employee Classification", "plots")
 print(results_log)
+save_model_metrics(results_log)
 
 # Random Forest
 rf_model = RandomForestClassifier(random_state=123)
@@ -56,6 +58,7 @@ rf_model.fit(x_train, y_train_cl)
 y_prob_rf = rf_model.predict_proba(x_test)[:, 1]
 results_rf = safeai_values(x_train, x_test, y_test_cl, y_prob_rf, rf_model, "Employee Classification", "plots")
 print(results_rf)
+save_model_metrics(results_rf)
 
 # XGBoosting
 xgb_model = xgb.XGBClassifier(random_state=123)
@@ -63,6 +66,7 @@ xgb_model.fit(x_train, y_train_cl)
 y_prob_xgb = xgb_model.predict_proba(x_test)[:, 1]
 results_xgb = safeai_values(x_train, x_test, y_test_cl, y_prob_xgb, xgb_model, "Employee Classification", "plots")
 print(results_xgb)
+save_model_metrics(results_xgb)
 
 # Stacked Ensemble Model
 stacking_clf = StackingClassifier(estimators=[('rf', rf_model), ('xgb', xgb_model)], final_estimator=log_model)
@@ -70,6 +74,7 @@ stacking_clf.fit(x_train, y_train_cl)
 y_prob_se = stacking_clf.predict_proba(x_test)[:, 1]
 results_se = safeai_values(x_train, x_test, y_test_cl, y_prob_se, stacking_clf, "Employee Classification", "plots")
 print(results_se)
+save_model_metrics(results_se)
 
 # Voting Ensemble Model
 voting_clf = VotingClassifier(estimators=[('rf', rf_model), ('xgb', xgb_model)], voting='soft')
@@ -77,6 +82,7 @@ voting_clf.fit(x_train, y_train_cl)
 y_prob_ve = voting_clf.predict_proba(x_test)[:, 1]
 results_ve = safeai_values(x_train, x_test, y_test_cl, y_prob_ve, voting_clf, "Employee Classification", "plots")
 print(results_ve)
+save_model_metrics(results_ve)
 
 # Random Model
 random_model = DummyClassifier(random_state=123)
@@ -84,6 +90,7 @@ random_model.fit(x_train, y_train_cl)
 y_prob_r = random_model.predict_proba(x_test)[:, 1]
 results_r = safeai_values(x_train, x_test, y_test_cl, y_prob_r, random_model, "Employee Classification", "plots")
 print(results_r)
+save_model_metrics(results_r)
 
 # Extract values
 x_lr = results_log["x_final"]
@@ -133,50 +140,71 @@ z_ve_r = (np.array(z_ve) - np.array(z_r)).tolist()
 
 # Compliance Curves (Classification)
 # Logistic Regression
+fig, axs = plt.subplots(3, 2, figsize=(15, 20))
+axs = axs.flatten()
+
 x_step = np.linspace(0, 1, len(y_r))
-plot_model_curves(x_step, [x_lr, y_lr, z_lr], model_name="Logistic Regression",
-                  title="Logistic Regression Curves (Classification)")
+plot_model_curves(x_step, [x_lr, y_lr, z_lr], model_name="LR",
+                  title="Logistic Regression Curves (Employee)", ax=axs[0])
 
 # Random Forest
-plot_model_curves(x_step, [x_rf, y_rf, z_rf], model_name="Random Forest",
-                  title="Random Forest Curves (Classification)")
+plot_model_curves(x_step, [x_rf, y_rf, z_rf], model_name="RF",
+                  title="Random Forest Curves (Employee)", ax=axs[1])
 
 # XGBoosting
-plot_model_curves(x_step,[x_xgb, y_xgb, z_xgb], model_name="XGBoosting",
-                  title="XGBoosting Curves (Classification)")
+plot_model_curves(x_step,[x_xgb, y_xgb, z_xgb], model_name="XGB",
+                  title="XGBoosting Curves (Employee)", ax=axs[2])
 
 # Stacked Ensemble Model
-plot_model_curves(x_step,[x_se, y_se, z_se], model_name="Stacked Ensemble Model",
-                  title="Stacked Ensemble Model Curves (Classification)")
+plot_model_curves(x_step,[x_se, y_se, z_se], model_name="SE",
+                  title="Stacked Ensemble Model Curves (Employee)", ax=axs[3])
 
 # Voting Ensemble Model
-plot_model_curves(x_step,[x_ve, y_ve, z_ve], model_name="Voting Ensemble Model",
-                  title="Voting Ensemble Model Curves (Classification)")
+plot_model_curves(x_step,[x_ve, y_ve, z_ve], model_name="VE",
+                  title="Voting Ensemble Model Curves (Employee)", ax=axs[4])
 
 # Random Model
-plot_model_curves(x_step,[x_r, y_r, z_r], model_name="Random Model",
-                  title="Random Model Curves (Classification)")
+plot_model_curves(x_step,[x_r, y_r, z_r], model_name="Random",
+                  title="Random Model Curves (Employee)", ax=axs[5])
 
-# Difference LR and Random
-plot_model_curves(x_step,[x_lr_r, y_lr_r, z_lr_r], model_name="Random", prefix="Difference",
-                  title="LR and Random Curves Difference (Classification)")
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
+plt.show()
 
-# Difference RF and Random
-plot_model_curves(x_step,[x_rf_r, y_rf_r, z_rf_r], model_name="Random", prefix="Difference",
-                  title="RF and Random Curves Difference (Classification)")
 
-# Difference XGB and Random
-plot_model_curves(x_step,[x_xgb_r, y_xgb_r, z_xgb_r], model_name="Random", prefix="Difference",
-                  title="XGB and Random Curves Difference (Classification)")
+# Difference
+# Create figure with custom grid layout
+fig = plt.figure(figsize=(20, 12))
+gs = GridSpec(2, 6, figure=fig, hspace=0.4, wspace=0.4)
 
-# Difference SE and Random
-plot_model_curves(x_step,[x_se_r, y_se_r, z_se_r], model_name="Random", prefix="Difference",
-                  title="SE and Random Curves Difference (Classification)")
+# First row: 3 plots (equal width)
+ax1 = fig.add_subplot(gs[0, 0:2])  # Columns 0-1
+ax2 = fig.add_subplot(gs[0, 2:4])  # Columns 2-3
+ax3 = fig.add_subplot(gs[0, 4:6])  # Columns 4-5
 
-# Difference VE and Random
-plot_model_curves(x_step,[x_ve_r, y_ve_r, z_ve_r], model_name="Random", prefix="Difference",
-                  title="VE and Random Curves Difference (Classification)")
+# Second row: 2 plots (centered)
+ax4 = fig.add_subplot(gs[1, 1:3])  # Columns 1-2 (centered)
+ax5 = fig.add_subplot(gs[1, 3:5])  # Columns 3-4 (centered)
 
+# Your plotting calls
+# First row (3 plots)
+plot_model_curves(x_step, [x_lr_r, y_lr_r, z_lr_r], model_name="Random", prefix="Difference",
+                  title="LR and Random Curves Difference (Employee)", ax=ax1)
+
+plot_model_curves(x_step, [x_rf_r, y_rf_r, z_rf_r], model_name="Random", prefix="Difference",
+                  title="RF and Random Curves Difference (Employee)", ax=ax2)
+
+plot_model_curves(x_step, [x_xgb_r, y_xgb_r, z_xgb_r], model_name="Random", prefix="Difference",
+                  title="XGB and Random Curves Difference (Employee)", ax=ax3)
+
+# Second row (2 plots, centered)
+plot_model_curves(x_step, [x_se_r, y_se_r, z_se_r], model_name="Random", prefix="Difference",
+                  title="SE and Random Curves Difference (Employee)", ax=ax4)
+
+plot_model_curves(x_step, [x_ve_r, y_ve_r, z_ve_r], model_name="Random", prefix="Difference",
+                  title="VE and Random Curves Difference (Employee)", ax=ax5)
+
+fig.subplots_adjust(top=0.90)
 plt.show()
 
 # Values and Volume
@@ -223,33 +251,48 @@ models = [
 ]
 
 # All arithmetic mean histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models:
+fig, axs = plt.subplots(3, 2, figsize=(15, 20))
+axs = axs.flatten()
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
     plot_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="arithmetic"
+        mean_type="arithmetic",
+        ax=axs[i]
     )
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
 
 # All geometric mean histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models:
+fig, axs = plt.subplots(3, 2, figsize=(15, 20))
+axs = axs.flatten()
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
     plot_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="geometric"
+        mean_type="geometric",
+        ax=axs[i]
     )
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
 
 # All quadratic mean histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models:
+fig, axs = plt.subplots(3, 2, figsize=(15, 20))
+axs = axs.flatten()
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
     plot_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="quadratic"
+        mean_type="quadratic",
+        ax=axs[i]
     )
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
 
 # Differences Means
@@ -281,84 +324,99 @@ rga_se_d, rge_se_d, rgr_se_d = np.meshgrid(rga_d_se, rge_d_se, rgr_d_se, indexin
 rga_ve_d, rge_ve_d, rgr_ve_d = np.meshgrid(rga_d_ve, rge_d_ve, rgr_d_ve, indexing='ij')
 
 models_diff = [
-    ((rga_lr_d,  rge_lr_d,  rgr_lr_d),  "Logistic Regression", "Logistic Regression"),
-    ((rga_rf_d,  rge_rf_d,  rgr_rf_d),  "Random Forest", "Random Forest Model"),
-    ((rga_xgb_d, rge_xgb_d, rgr_xgb_d), "XGBoosting", "XGB Model"),
-    ((rga_se_d,  rge_se_d,  rgr_se_d),  "Stacked Ensemble", "Stacked Ensemble Model"),
-    ((rga_ve_d,  rge_ve_d,  rgr_ve_d),  "Voting Ensemble", "Voting Ensemble Model"),
+    ((rga_lr_d,  rge_lr_d,  rgr_lr_d),  "LR", "Logistic Regression"),
+    ((rga_rf_d,  rge_rf_d,  rgr_rf_d),  "RF", "Random Forest Model"),
+    ((rga_xgb_d, rge_xgb_d, rgr_xgb_d), "XGB", "XGB Model"),
+    ((rga_se_d,  rge_se_d,  rgr_se_d),  "SE", "Stacked Ensemble Model"),
+    ((rga_ve_d,  rge_ve_d,  rgr_ve_d),  "VE", "Voting Ensemble Model"),
 ]
 
 # All arithmetic mean differences histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models_diff:
+fig = plt.figure(figsize=(20, 20))
+gs = GridSpec(2, 6, figure=fig, hspace=0.4, wspace=2)
+
+# First row: 3 plots (equal width)
+ax1 = fig.add_subplot(gs[0, 0:2])  # Columns 0-1
+ax2 = fig.add_subplot(gs[0, 2:4])  # Columns 2-3
+ax3 = fig.add_subplot(gs[0, 4:6])  # Columns 4-5
+
+# Second row: 2 plots (centered)
+ax4 = fig.add_subplot(gs[1, 1:3])  # Columns 1-2 (centered)
+ax5 = fig.add_subplot(gs[1, 3:5])  # Columns 3-4 (centered)
+
+# Create axes list for easy iteration
+axs = [ax1, ax2, ax3, ax4, ax5]
+
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="arithmetic"
+        mean_type="arithmetic",
+        ax=axs[i]
     )
+
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
 
 # All geometric mean differences histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models_diff:
+fig = plt.figure(figsize=(20, 20))
+gs = GridSpec(2, 6, figure=fig, hspace=0.4, wspace=2)
+
+# First row: 3 plots (equal width)
+ax1 = fig.add_subplot(gs[0, 0:2])  # Columns 0-1
+ax2 = fig.add_subplot(gs[0, 2:4])  # Columns 2-3
+ax3 = fig.add_subplot(gs[0, 4:6])  # Columns 4-5
+
+# Second row: 2 plots (centered)
+ax4 = fig.add_subplot(gs[1, 1:3])  # Columns 1-2 (centered)
+ax5 = fig.add_subplot(gs[1, 3:5])  # Columns 3-4 (centered)
+
+# Create axes list for easy iteration
+axs = [ax1, ax2, ax3, ax4, ax5]
+
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="geometric"
+        mean_type="geometric",
+        ax=axs[i]
     )
+
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
 
 # All quadratic mean differences histograms
-for (rga_var, rge_var, rgr_var), model_name, bar_label in models_diff:
+fig = plt.figure(figsize=(20, 20))
+gs = GridSpec(2, 6, figure=fig, hspace=0.4, wspace=2)
+
+# First row: 3 plots (equal width)
+ax1 = fig.add_subplot(gs[0, 0:2])  # Columns 0-1
+ax2 = fig.add_subplot(gs[0, 2:4])  # Columns 2-3
+ax3 = fig.add_subplot(gs[0, 4:6])  # Columns 4-5
+
+# Second row: 2 plots (centered)
+ax4 = fig.add_subplot(gs[1, 1:3])  # Columns 1-2 (centered)
+ax5 = fig.add_subplot(gs[1, 3:5])  # Columns 3-4 (centered)
+
+# Create axes list for easy iteration
+axs = [ax1, ax2, ax3, ax4, ax5]
+
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
         bar_label=bar_label,
-        mean_type="quadratic"
+        mean_type="quadratic",
+        ax=axs[i]
     )
+
+plt.tight_layout()
+fig.subplots_adjust(top=0.90, hspace=0.4, wspace=4)
 plt.show()
-
-# Hypervolume approach
-def hypervolume(x1, y2, z3):
-    v1 = np.array(x1)
-    v2 = np.array(y2)
-    v3 = np.array(z3)
-
-    # Construct Gram matrix
-    g = np.array([
-        [np.dot(v1, v1), np.dot(v1, v2), np.dot(v1, v3)],
-        [np.dot(v2, v1), np.dot(v2, v2), np.dot(v2, v3)],
-        [np.dot(v3, v1), np.dot(v3, v2), np.dot(v3, v3)]
-    ])
-
-    # Hypervolume
-    volume = np.sqrt(np.linalg.det(g))
-
-    return volume
-
-# Hypervolume LR
-volume_lr = hypervolume(rgas_lr, rges_lr, rgrs_lr)
-print(f"Hypervolume LR: {volume_lr:.3f}")
-
-# Hypervolume RF
-volume_rf = hypervolume(rgas_rf, rges_rf, rgrs_rf)
-print(f"Hypervolume RF: {volume_rf:.3f}")
-
-# Hypervolume XGB
-volume_xgb = hypervolume(rgas_xgb, rges_xgb, rgrs_xgb)
-print(f"Hypervolume XGB: {volume_xgb:.3f}")
-
-# Hypervolume SE
-volume_se = hypervolume(rgas_se, rges_se, rgrs_se)
-print(f"Hypervolume SE: {volume_se:.3f}")
-
-# Hypervolume VE
-volume_ve = hypervolume(rgas_ve, rges_ve, rgrs_ve)
-print(f"Hypervolume VE: {volume_ve:.3f}")
-
-# Hypervolume R
-volume_r = hypervolume(rgas_random, rges_random, rgrs_random)
-print(f"Hypervolume Random: {volume_r:.3f}")
 
 # TOPSIS approach
 best_x_list = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]

@@ -9,7 +9,7 @@ import torch
 from safeai_files.check_compliance import safeai_values
 from safeai_files.check_explainability import compute_rge_values
 from safeai_files.utils import save_model_metrics
-from torch_for_credits.torch_model import NeuralNetwork
+from old_code.torch_for_credits.torch_model import NeuralNetwork
 
 # Directory of the data
 save_dir = "../saved_data"

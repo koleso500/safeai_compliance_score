@@ -9,38 +9,38 @@ import torch
 from safeai_files.check_compliance import safeai_values
 from safeai_files.check_explainability import compute_rge_values
 from safeai_files.utils import save_model_metrics
-from torch_for_credits.torch_model import NeuralNetwork
+from old_code.torch_for_credits.torch_model import NeuralNetwork
 
 # Directory of the data
 save_dir = "../saved_data"
 
 # Load torch tensors
-tensor_path = os.path.join(save_dir, "full_data_tensors_ca.pth")
+tensor_path = os.path.join(save_dir, "full_data_tensors_ny_article.pth")
 tensor_data = torch.load(tensor_path, weights_only=True)
-x_train_tensor = tensor_data["x_train_tensor_ca"]
-y_train_tensor = tensor_data["y_train_tensor_ca"]
-x_test_tensor = tensor_data["x_test_tensor_ca"]
-y_test_tensor = tensor_data["y_test_tensor_ca"]
+x_train_tensor = tensor_data["x_train_tensor_ny_article"]
+y_train_tensor = tensor_data["y_train_tensor_ny_article"]
+x_test_tensor = tensor_data["x_test_tensor_ny_article"]
+y_test_tensor = tensor_data["y_test_tensor_ny_article"]
 
 # Load best torch parameters
-best_params_path = os.path.join(save_dir, "best_torch_params_ca.json")
+best_params_path = os.path.join(save_dir, "best_torch_params_ny_article.json")
 with open(best_params_path, "r", encoding="utf-8") as file:
     best_params = json.load(file)
 
 # Load other data
-x_train_scaled_names = pd.read_csv(os.path.join(save_dir, "x_train_scaled_names_ca.csv"))
-x_test_scaled_names = pd.read_csv(os.path.join(save_dir, "x_test_scaled_names_ca.csv"))
-y_train = np.load(os.path.join(save_dir, "y_train_ca.npy"))
-y_test = np.load(os.path.join(save_dir, "y_test_ca.npy"))
+x_train_scaled_names = pd.read_csv(os.path.join(save_dir, "x_train_scaled_names_ny_article.csv"))
+x_test_scaled_names = pd.read_csv(os.path.join(save_dir, "x_test_scaled_names_ny_article.csv"))
+y_train = np.load(os.path.join(save_dir, "y_train_ny_article.npy"))
+y_test = np.load(os.path.join(save_dir, "y_test_ny_article.npy"))
 
 # Load loss values
-train_losses = np.load("../saved_data/best_train_losses_ca.npy")
-val_losses = np.load("../saved_data/best_val_losses_ca.npy")
+train_losses = np.load("../saved_data/best_train_losses_ny_article.npy")
+val_losses = np.load("../saved_data/best_val_losses_ny_article.npy")
 
-def evaluate_model_ca():
+def evaluate_model_ny_article():
     # Load the best model
     best_model = NeuralNetwork(x_train_scaled_names.shape[1], best_params[2], best_params[3])
-    best_model.load_state_dict(torch.load('../saved_models/best_torch_model_ca.pth', weights_only=True))
+    best_model.load_state_dict(torch.load('../saved_models/best_torch_model_ny_article.pth', weights_only=True))
     best_model.eval()
 
     # Make predictions on the test set
@@ -103,7 +103,7 @@ def evaluate_model_ca():
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic Curve')
     plt.legend(loc='lower right')
-    plt.savefig("plots/NN_ROC_Curve_ca.png", dpi=300)
+    plt.savefig("plots/NN_ROC_Curve_ny_article.png", dpi=300)
     plt.close()
 
     # Training and Validation loss
@@ -116,17 +116,17 @@ def evaluate_model_ca():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig("plots/NN_Loss_ca.png", dpi=300)
+    plt.savefig("plots/NN_Loss_ny_article.png", dpi=300)
     plt.close()
 
     # Integrating safeai
     results = safeai_values(x_train_scaled_names, x_test_scaled_names, y_test, y_pred_prob, best_model,
-                            "California HMDA", "plots")
+                            "New York Article", "plots")
     print(results)
     save_model_metrics(results)
 
     # Fairness
-    fair = compute_rge_values(x_train_scaled_names, x_test_scaled_names, y_pred_prob, best_model,   ["applicant_sex", "applicant_race_1"])
+    fair = compute_rge_values(x_train_scaled_names, x_test_scaled_names, y_pred_prob, best_model,["applicant_sex_name", "applicant_race_1"])
     print(fair)
 
     # Save results
@@ -136,9 +136,9 @@ def evaluate_model_ca():
         "z_final": results["z_final"]
     }
     json_str = json.dumps(data, indent=4)
-    file_path = os.path.join("../saved_data", "final_results_neural_ca.json")
+    file_path = os.path.join("../saved_data", "final_results_neural_ny_article.json")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(json_str)
 
 if __name__ == "__main__":
-    evaluate_model_ca()
+    evaluate_model_ny_article()

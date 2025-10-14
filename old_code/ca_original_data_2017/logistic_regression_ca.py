@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from safeai_files.check_compliance import safeai_values
 from safeai_files.check_explainability import compute_rge_values
+from safeai_files.core import partial_rga_with_curves
 from safeai_files.utils import save_model_metrics
 
 # Data separation
@@ -33,6 +34,7 @@ log_model.fit(x_train_scaled, y_train)
 y_pred = log_model.predict(x_test_scaled)
 y_prob = log_model.predict_proba(x_test_scaled)[:, 1]  # Probabilities for the positive class
 
+partial_rga_with_curves(y_test, y_prob, 0, 1, True)
 # AUC
 fpr, tpr, thresholds = roc_curve(y_test, y_prob)
 roc_auc = auc(fpr, tpr)

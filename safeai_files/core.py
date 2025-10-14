@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import stats
 from safeai_files.utils import check_nan,convert_to_dataframe
 
 def rga(y: list, yhat: list):
@@ -165,3 +166,31 @@ def partial_rga_with_curves(y: list, yhat: list, lower=0.0, upper=1.0, plot=True
         plt.show()
 
     return partial_rga_contribution
+
+
+def cramer_von_mises_1(y, z):
+    """
+    One-dimensional Cramér-von Mises distance
+
+    Parameters
+    ----------
+    y : array-like
+        First variable
+    z : array-like
+        Second variable
+
+    Returns
+    -------
+    float
+        CvM1 result
+    """
+    y = np.array(y).flatten()
+    z = np.array(z).flatten()
+    n = len(y)
+
+    # Ranks of y
+    y_ranks = stats.rankdata(y, method='average') / n
+
+    cvm1 = np.mean(np.abs(y - z))
+
+    return cvm1

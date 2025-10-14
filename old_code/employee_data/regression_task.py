@@ -7,7 +7,7 @@ from sklearn.ensemble import VotingRegressor, StackingRegressor, RandomForestReg
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
-from safeai_files.check_compliance import safeai_values
+from safeai_files.regression import r_safeai_values
 from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
 
 # Data loading and basic information
@@ -46,42 +46,42 @@ x_train, x_test, y_train_rg, y_test_rg = train_test_split(x, y_reg, test_size=0.
 reg_model = LinearRegression()
 reg_model.fit(x_train, y_train_rg)
 y_prob_reg = reg_model.predict(x_test)
-results_reg = safeai_values(x_train, x_test, y_test_rg, y_prob_reg, reg_model, "Employee Regression", "plots")
+results_reg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_reg, reg_model, "Employee Regression", "plots")
 print(results_reg)
 
 # Random Forest
 rf_rg = RandomForestRegressor(random_state=123)
 rf_rg.fit(x_train, y_train_rg)
 y_prob_rf_rg = rf_rg.predict(x_test)
-results_rf_rg = safeai_values(x_train, x_test, y_test_rg, y_prob_rf_rg, rf_rg, "Employee Regression", "plots")
+results_rf_rg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_rf_rg, rf_rg, "Employee Regression", "plots")
 print(results_rf_rg)
 
 # XGBoosting
 xgb_rg = xgb.XGBRegressor(random_state=123)
 xgb_rg.fit(x_train, y_train_rg)
 y_prob_xgb_rg = xgb_rg.predict(x_test)
-results_xgb_rg = safeai_values(x_train, x_test, y_test_rg, y_prob_xgb_rg, xgb_rg, "Employee Regression", "plots")
+results_xgb_rg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_xgb_rg, xgb_rg, "Employee Regression", "plots")
 print(results_xgb_rg)
 
 # Stacked Ensemble Model
 stacking_rg = StackingRegressor(estimators=[('rf', rf_rg), ('xgb', xgb_rg)], final_estimator=reg_model)
 stacking_rg.fit(x_train, y_train_rg)
 y_prob_se_rg = stacking_rg.predict(x_test)
-results_se_rg = safeai_values(x_train, x_test, y_test_rg, y_prob_se_rg, stacking_rg, "Employee Regression", "plots")
+results_se_rg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_se_rg, stacking_rg, "Employee Regression", "plots")
 print(results_se_rg)
 
 # Voting Ensemble Model
 voting_rg = VotingRegressor(estimators=[('rf', rf_rg), ('xgb', xgb_rg)])
 voting_rg.fit(x_train, y_train_rg)
 y_prob_ve_rg = voting_rg.predict(x_test)
-results_ve_rg = safeai_values(x_train, x_test, y_test_rg, y_prob_ve_rg, voting_rg, "Employee Regression", "plots")
+results_ve_rg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_ve_rg, voting_rg, "Employee Regression", "plots")
 print(results_ve_rg)
 
 # Random Model
 random_rg = DummyRegressor()
 random_rg.fit(x_train, y_train_rg)
 y_prob_r_rg = random_rg.predict(x_test)
-results_r_rg = safeai_values(x_train, x_test, y_test_rg, y_prob_r_rg, random_rg, "Employee Regression", "plots")
+results_r_rg = r_safeai_values(x_train, x_test, y_test_rg, y_prob_r_rg, random_rg, "Employee Regression", "plots")
 print(results_r_rg)
 
 # Extract values

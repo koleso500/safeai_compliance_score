@@ -377,17 +377,17 @@ def plot_diff_mean_histogram(rga, rge, rgr, *,
         values = (rga + rge + rgr) / 3
         print_label = f"Difference Arithmetic {model_name}"
         xlabel = "Normalized Difference Arithmetic Mean"
-        title = f"Histogram of Normalized Difference Arithmetic Mean Values  ({model_name})"
+        title = f"Histogram of Difference Arithmetic Mean Values  ({model_name})"
     elif mean_type == "geometric":
         values = np.cbrt(rga * rge * rgr)
         print_label = f"Difference Geometric Mean (1/3) {model_name}"
         xlabel = "Normalized Difference Geometric Mean (1/3)"
-        title = f"Histogram of Normalized Difference Geometric Mean (1/3) Values ({model_name})"
+        title = f"Histogram of Difference Geometric Mean (1/3) Values ({model_name})"
     elif mean_type == "quadratic":
         values = np.sqrt((rga ** 2 + rge ** 2 + rgr ** 2) / 3)
         print_label = f"Difference Mean volume Quadratic Mean (RMS) {model_name}"
         xlabel = "Normalized Difference Quadratic Mean (RMS)"
-        title = f"Histogram of Normalized Difference Quadratic Mean (RMS) Values ({model_name})"
+        title = f"Histogram of Difference Quadratic Mean (RMS) Values ({model_name})"
     else:
         raise ValueError("`mean_type` is not added yet")
 

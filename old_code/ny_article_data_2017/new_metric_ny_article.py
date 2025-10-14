@@ -4,7 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 
-from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_metric_distribution, plot_diff_mean_histogram
+from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
 
 # Load values
 file_path_lr = os.path.join("../saved_data", "final_results_lr_ny_article.json")
@@ -106,7 +106,7 @@ plot_model_curves(x_rga,[x_voting, y_voting, z_voting], model_name="VE", title="
 plot_model_curves(x_rga,[x_neural, y_neural, z_neural], model_name="NN", title="Neural Network Curves (New York Article)", ax=axs[5])
 
 # All curves for Random
-plot_model_curves(x_rga,[x_random, y_random, z_random], model_name="Random",title="Random Classifier Curves (New York Article)")
+plot_model_curves(x_rga,[x_random, y_random, z_random], model_name="Random",title="Random Classifier Curves")
 
 fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.tight_layout()
@@ -189,7 +189,6 @@ models = [
     ((rga_se,  rge_se,  rgr_se),  "Stacked Ensemble", "Stacked Ensemble Model"),
     ((rga_ve,  rge_ve,  rgr_ve),  "Voting Ensemble", "Voting Ensemble Model"),
     ((rga_nn,  rge_nn,  rgr_nn),  "Neural Network", "Neural Network Model"),
-    #((rga_r,   rge_r,   rgr_r),   "Random Classifier", "Random Classifier"),
 ]
 
 # All arithmetic mean histograms
@@ -206,6 +205,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="arithmetic")
 plt.show()
 
 # All geometric mean histograms
@@ -222,6 +223,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="geometric")
 plt.show()
 
 # All quadratic mean histograms
@@ -237,6 +240,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="quadratic")
 plt.show()
 
 # Differences Means
@@ -285,7 +290,7 @@ models_diff = [
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -295,13 +300,13 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
-plt.show()
+#plt.show()
 
 # All geometric mean differences histograms
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -311,13 +316,13 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
-plt.show()
+#plt.show()
 
 # All quadratic mean differences histograms
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -327,137 +332,7 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
-plt.show()
-
-# Slope Arithmetic
-def slope_arithmetic(x, y, z):
-    dx = [x[i] - x[i+1] for i in range(len(x)-1)]
-    dy = [y[i] - y[i+1] for i in range(len(y)-1)]
-    dz = [z[i] - z[i+1] for i in range(len(z)-1)]
-    rgas = np.array(dx)
-    rges = np.array(dy)
-    rgrs = np.array(dz)
-    rga, rge, rgr = np.meshgrid(rgas, rges, rgrs, indexing='ij')
-    results = (rga + rge + rgr) / 3
-    return results
-
-# Histogram of the slope product metric LR
-values_sl_lr = slope_arithmetic(x_lr, y_lr, z_lr)
-plot_metric_distribution(
-    metric_values=values_sl_lr,
-    print_label="Mean volume Slope Product Logistic Regression",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Logistic Regression)",
-    bar_label="Logistic Regression"
-)
-
-# Histogram of the slope product metric RF
-values_sl_rf = slope_arithmetic(x_rf, y_rf, z_rf)
-plot_metric_distribution(
-    metric_values=values_sl_rf,
-    print_label="Mean volume Slope Product Random Forest",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Random Forest)",
-    bar_label="Random Forest"
-)
-
-# Histogram of the slope product metric XGB
-values_sl_xgb = slope_arithmetic(x_xgb, y_xgb, z_xgb)
-plot_metric_distribution(
-    metric_values=values_sl_xgb,
-    print_label="Mean volume Slope Product XGBoosting",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (XGBoosting)",
-    bar_label="XGBoosting"
-)
-
-# Histogram of the slope product metric SE
-values_sl_se = slope_arithmetic(x_stacked, y_stacked, z_stacked)
-plot_metric_distribution(
-    metric_values=values_sl_se,
-    print_label="Mean volume Slope Product Stacked Ensemble",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Stacked Ensemble)",
-    bar_label="Stacked Ensemble"
-)
-
-# Histogram of the slope product metric VE
-values_sl_ve = slope_arithmetic(x_voting, y_voting, z_voting)
-plot_metric_distribution(
-    metric_values=values_sl_ve,
-    print_label="Mean volume Slope Product Voting Ensemble",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Voting Ensemble)",
-    bar_label="Voting Ensemble"
-)
-
-# Histogram of the slope product metric NN
-values_sl_nn = slope_arithmetic(x_neural, y_neural, z_neural)
-plot_metric_distribution(
-    metric_values=values_sl_nn,
-    print_label="Mean volume Slope Product Neural Network",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Neural Network)",
-    bar_label="Neural Network"
-)
-
-# Histogram of the slope product metric Random
-values_sl_r = slope_arithmetic(x_random, y_random, z_random)
-plot_metric_distribution(
-    metric_values=values_sl_r,
-    print_label="Mean volume Slope Product Random Classifier",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Random Classifier)",
-    bar_label="Random Classifier"
-)
-
-plt.show()
-
-# Hypervolume approach
-def hypervolume(x, y, z):
-    v1 = np.array(x)
-    v2 = np.array(y)
-    v3 = np.array(z)
-
-    # Construct Gram matrix
-    g = np.array([
-        [np.dot(v1, v1), np.dot(v1, v2), np.dot(v1, v3)],
-        [np.dot(v2, v1), np.dot(v2, v2), np.dot(v2, v3)],
-        [np.dot(v3, v1), np.dot(v3, v2), np.dot(v3, v3)]
-    ])
-
-    # Hypervolume
-    volume = np.sqrt(np.linalg.det(g))
-
-    return volume
-
-# Hypervolume LR
-volume_lr = hypervolume(rgas_lr, rges_lr, rgrs_lr)
-print(f"Hypervolume LR: {volume_lr:.3f}")
-
-# Hypervolume RF
-volume_rf = hypervolume(rgas_rf, rges_rf, rgrs_rf)
-print(f"Hypervolume RF: {volume_rf:.3f}")
-
-# Hypervolume XGB
-volume_xgb = hypervolume(rgas_xgb, rges_xgb, rgrs_xgb)
-print(f"Hypervolume XGB: {volume_xgb:.3f}")
-
-# Hypervolume SE
-volume_se = hypervolume(rgas_se, rges_se, rgrs_se)
-print(f"Hypervolume SE: {volume_se:.3f}")
-
-# Hypervolume VE
-volume_ve = hypervolume(rgas_ve, rges_ve, rgrs_ve)
-print(f"Hypervolume VE: {volume_ve:.3f}")
-
-# Hypervolume NN
-volume_nn = hypervolume(rgas_nn, rges_nn, rgrs_nn)
-print(f"Hypervolume NN: {volume_nn:.3f}")
-
-# Hypervolume R
-volume_r = hypervolume(rgas_random, rges_random, rgrs_random)
-print(f"Hypervolume Random: {volume_r:.3f}")
+#plt.show()
 
 # TOPSIS approach
 best_x_list = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
@@ -527,7 +402,7 @@ for col in ["mean_x", "mean_y", "mean_z"]:
     norm = np.sqrt((vec**2).sum())
     df["r_" + col] = vec / norm
 
-weights = np.array([1/3, 1/3, 1/3])
+weights = np.array([0.7, 0.15, 0.15])
 df["v_mean_x"] = df["r_mean_x"] * weights[0]
 df["v_mean_y"] = df["r_mean_y"] * weights[1]
 df["v_mean_z"] = df["r_mean_z"] * weights[2]

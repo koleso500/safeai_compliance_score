@@ -11,12 +11,12 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from torch_for_credits.torch_model import CreditModel
+from old_code.torch_for_credits.torch_model import NeuralNetwork
 
 # Data separation
-data_lending_ny_clean = pd.read_csv("../saved_data/data_lending_clean_ny_article.csv")
-x = data_lending_ny_clean.drop(columns=['response'])
-y = data_lending_ny_clean['response']
+data_lending_ny_clean = pd.read_csv("../saved_data/data_lending_clean_ny_original.csv")
+x = data_lending_ny_clean.drop(columns=['action_taken'])
+y = data_lending_ny_clean['action_taken']
 
 # Splitting into 80% training and 20% testing
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=15)
@@ -89,7 +89,7 @@ for batch_size, layers, dropout_rate in itertools.product(batch_sizes, hidden_la
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
 
         # Define model
-        model = CreditModel(x_train.shape[1], layers, dropout_rate).to(device)
+        model = NeuralNetwork(x_train.shape[1], layers, dropout_rate).to(device)
         criterion = nn.BCEWithLogitsLoss().to(device)
         optimizer = optim.Adam(model.parameters())
 
@@ -180,7 +180,7 @@ for batch_size, layers, dropout_rate in itertools.product(batch_sizes, hidden_la
                 best_val_losses = fold_val_losses.copy()
 
                 # Save the best model
-                best_torch_model_path = os.path.join(model_dir, "best_torch_model_ny_article.pth")
+                best_torch_model_path = os.path.join(model_dir, "best_torch_model_ny_original.pth")
                 if model is not None:
                     torch.save(model.state_dict(), best_torch_model_path)
                     print(f"New best model saved at {model_dir}")
@@ -192,25 +192,25 @@ print(f"Best model saved at {model_dir}")
 
 # Save variables to the folder
 # Tensors
-tensor_path = os.path.join("../saved_data", "full_data_tensors_ny_article.pth")
+tensor_path = os.path.join("../saved_data", "full_data_tensors_ny_original.pth")
 torch.save({
-    "x_train_tensor_ny_article": x_train_tensor,
-    "y_train_tensor_ny_article": y_train_tensor,
-    "x_test_tensor_ny_article": x_test_tensor,
-    "y_test_tensor_ny_article": y_test_tensor,
+    "x_train_tensor_ny_original": x_train_tensor,
+    "y_train_tensor_ny_original": y_train_tensor,
+    "x_test_tensor_ny_original": x_test_tensor,
+    "y_test_tensor_ny_original": y_test_tensor,
 }, tensor_path)
 
 # Best parameters
 json_str = json.dumps(best_params, indent=4)
-file_path = os.path.join("../saved_data", "best_torch_params_ny_article.json")
+file_path = os.path.join("../saved_data", "best_torch_params_ny_original.json")
 with open(file_path, "w", encoding="utf-8") as file:
     file.write(json_str)
 print("Best parameters saved successfully!")
 
 # Other
-x_train_scaled_names.to_csv(os.path.join("../saved_data", "x_train_scaled_names_ny_article.csv"), index=False)
-x_test_scaled_names.to_csv(os.path.join("../saved_data", "x_test_scaled_names_ny_article.csv"), index=False)
-np.save(os.path.join("../saved_data", "y_train_ny_article.npy"), y_train)
-np.save(os.path.join("../saved_data", "y_test_ny_article.npy"), y_test)
-np.save("../saved_data/best_train_losses_ny_article.npy", np.array(best_train_losses))
-np.save("../saved_data/best_val_losses_ny_article.npy", np.array(best_val_losses))
+x_train_scaled_names.to_csv(os.path.join("../saved_data", "x_train_scaled_names_ny_original.csv"), index=False)
+x_test_scaled_names.to_csv(os.path.join("../saved_data", "x_test_scaled_names_ny_original.csv"), index=False)
+np.save(os.path.join("../saved_data", "y_train_ny_original.npy"), y_train)
+np.save(os.path.join("../saved_data", "y_test_ny_original.npy"), y_test)
+np.save("../saved_data/best_train_losses_ny_original.npy", np.array(best_train_losses))
+np.save("../saved_data/best_val_losses_ny_original.npy", np.array(best_val_losses))

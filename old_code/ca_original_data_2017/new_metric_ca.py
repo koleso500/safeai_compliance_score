@@ -3,17 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+from sklearn.metrics import auc
 
-from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_metric_distribution, plot_diff_mean_histogram
+from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
 
 # Load values
-file_path_lr = os.path.join("../saved_data", "final_results_lr_ny_original.json")
-file_path_rf = os.path.join("../saved_data", "final_results_rf_ny_original.json")
-file_path_xgb = os.path.join("../saved_data", "final_results_xgb_ny_original.json")
-file_path_stacked = os.path.join("../saved_data", "final_results_stacked_ny_original.json")
-file_path_voting = os.path.join("../saved_data", "final_results_voting_ny_original.json")
-file_path_neural = os.path.join("../saved_data", "final_results_neural_ny_original.json")
-file_path_random = os.path.join("../saved_data", "final_results_random_ny_original.json")
+file_path_lr = os.path.join("../saved_data", "final_results_lr_ca.json")
+file_path_rf = os.path.join("../saved_data", "final_results_rf_ca.json")
+file_path_xgb = os.path.join("../saved_data", "final_results_xgb_ca.json")
+file_path_stacked = os.path.join("../saved_data", "final_results_stacked_ca.json")
+file_path_voting = os.path.join("../saved_data", "final_results_voting_ca.json")
+file_path_neural = os.path.join("../saved_data", "final_results_neural_ca.json")
+file_path_random = os.path.join("../saved_data", "final_results_random_ca.json")
 
 with open(file_path_lr, "r", encoding="utf-8") as file:
     data_lr = json.load(file)
@@ -88,28 +89,41 @@ fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
 x_rga = np.linspace(0, 1, len(y_random))
-plot_model_curves(x_rga,[x_lr, y_lr, z_lr], model_name="LR", title="Logistic Regression Curves (New York HMDA)", ax=axs[0])
+plot_model_curves(x_rga,[x_lr, y_lr, z_lr], model_name="LR", title="Logistic Regression Curves (California HMDA)", ax=axs[0])
 
 # All curves for RF
-plot_model_curves(x_rga,[x_rf, y_rf, z_rf], model_name="RF", title="Random Forest Curves (New York HMDA)", ax=axs[1])
+plot_model_curves(x_rga,[x_rf, y_rf, z_rf], model_name="RF", title="Random Forest Curves (California HMDA)", ax=axs[1])
 
 # All curves for XGB
-plot_model_curves(x_rga,[x_xgb, y_xgb, z_xgb], model_name="XGB", title="XGBoosting Curves (New York HMDA)", ax=axs[2])
+plot_model_curves(x_rga,[x_xgb, y_xgb, z_xgb], model_name="XGB", title="XGBoosting Curves (California HMDA)", ax=axs[2])
 
 # All curves for SE
-plot_model_curves(x_rga,[x_stacked, y_stacked, z_stacked], model_name="SE", title="Stacked Ensemble Curves (New York HMDA)", ax=axs[3])
+plot_model_curves(x_rga,[x_stacked, y_stacked, z_stacked], model_name="SE", title="Stacked Ensemble Curves (California HMDA)", ax=axs[3])
 
 # All curves for VE
-plot_model_curves(x_rga,[x_voting, y_voting, z_voting], model_name="VE", title="Voting Ensemble Curves (New York HMDA)", ax=axs[4])
+plot_model_curves(x_rga,[x_voting, y_voting, z_voting], model_name="VE", title="Voting Ensemble Curves (California HMDA)", ax=axs[4])
 
 # All curves for NN
-plot_model_curves(x_rga,[x_neural, y_neural, z_neural], model_name="NN", title="Neural Network Curves (New York HMDA)", ax=axs[5])
+plot_model_curves(x_rga,[x_neural, y_neural, z_neural], model_name="NN", title="Neural Network Curves (California HMDA)", ax=axs[5])
 
 # All curves for Random
-plot_model_curves(x_rga,[x_random, y_random, z_random], model_name="Random",title="Random Classifier Curves (New York HMDA)")
+plot_model_curves(x_rga,[x_random, y_random, z_random], model_name="Random",title="Random Classifier Curves (California HMDA)")
 
 fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.tight_layout()
+plt.show()
+
+auc_value = auc(x_rga, x_rf)
+auc_value_r = auc(x_rga, x_random)
+plt.figure(figsize=(6, 4))
+plt.plot(x_rga, x_rf, linestyle='-', label=f"RGA Curve (AURGA = {auc_value:.4f})")
+plt.plot(x_rga, x_random, linestyle='--', label=f"Random Baseline (AURGA = {auc_value_r:.4f})")
+plt.title(f'Random Forest Classifier RGA Curve (California HMDA)')
+plt.xlabel('Fraction of Data Removed')
+plt.ylabel('RGA')
+plt.legend()
+plt.xlim([0, 1])
+plt.grid(True)
 plt.show()
 
 # All curves for difference LR and Random
@@ -117,27 +131,27 @@ fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
 plot_model_curves(x_rga,[x_lr_r, y_lr_r, z_lr_r], model_name="Baseline", prefix="Difference",
-                  title="LR Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[0])
+                  title="LR Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[0])
 
 # All curves for difference RF and Random
 plot_model_curves(x_rga,[x_rf_r, y_rf_r, z_rf_r], model_name="Baseline", prefix="Difference",
-                  title="RF Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[1])
+                  title="RF Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[1])
 
 # All curves for difference XGB and Random
 plot_model_curves(x_rga,[x_xgb_r, y_xgb_r, z_xgb_r], model_name="Baseline", prefix="Difference",
-                  title="XGB Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[2])
+                  title="XGB Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[2])
 
 # All curves for difference SE and Random
 plot_model_curves(x_rga,[x_stacked_r, y_stacked_r, z_stacked_r], model_name="Baseline", prefix="Difference",
-                  title="SE Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[3])
+                  title="SE Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[3])
 
 # All curves for difference VE and Random
 plot_model_curves(x_rga,[x_voting_r, y_voting_r, z_voting_r], model_name="Baseline", prefix="Difference",
-                  title="VE Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[4])
+                  title="VE Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[4])
 
 # All curves for difference NN and Random
 plot_model_curves(x_rga,[x_neural_r, y_neural_r, z_neural_r], model_name="Baseline", prefix="Difference",
-                  title="NN Performance Difference Relative to Random Baseline \n(New York HMDA)", ax=axs[5])
+                  title="NN Performance Difference Relative to Random Baseline \n(California HMDA)", ax=axs[5])
 
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
@@ -189,7 +203,6 @@ models = [
     ((rga_se,  rge_se,  rgr_se),  "Stacked Ensemble", "Stacked Ensemble Model"),
     ((rga_ve,  rge_ve,  rgr_ve),  "Voting Ensemble", "Voting Ensemble Model"),
     ((rga_nn,  rge_nn,  rgr_nn),  "Neural Network", "Neural Network Model"),
-    #((rga_r,   rge_r,   rgr_r),   "Random Classifier", "Random Classifier"),
 ]
 
 # All arithmetic mean histograms
@@ -206,6 +219,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="arithmetic")
 plt.show()
 
 # All geometric mean histograms
@@ -222,6 +237,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="geometric")
 plt.show()
 
 # All quadratic mean histograms
@@ -237,6 +254,8 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
     )
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
+
+plot_mean_histogram(rga_r, rge_r, rgr_r, model_name="Random Classifier", bar_label="Random Classifier", mean_type="quadratic")
 plt.show()
 
 # Differences Means
@@ -285,7 +304,7 @@ models_diff = [
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -301,7 +320,7 @@ plt.show()
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -317,7 +336,7 @@ plt.show()
 fig, axs = plt.subplots(3, 2, figsize=(15, 20))
 axs = axs.flatten()
 
-for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models):
+for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models_diff):
     plot_diff_mean_histogram(
         rga_var, rge_var, rgr_var,
         model_name=model_name,
@@ -328,136 +347,6 @@ for i, ((rga_var, rge_var, rgr_var), model_name, bar_label) in enumerate(models)
 plt.tight_layout()
 fig.subplots_adjust(top=0.90, hspace=0.4)
 plt.show()
-
-# Slope Arithmetic
-def slope_arithmetic(x, y, z):
-    dx = [x[i] - x[i+1] for i in range(len(x)-1)]
-    dy = [y[i] - y[i+1] for i in range(len(y)-1)]
-    dz = [z[i] - z[i+1] for i in range(len(z)-1)]
-    rgas = np.array(dx)
-    rges = np.array(dy)
-    rgrs = np.array(dz)
-    rga, rge, rgr = np.meshgrid(rgas, rges, rgrs, indexing='ij')
-    results = (rga + rge + rgr) / 3
-    return results
-
-# Histogram of the slope product metric LR
-values_sl_lr = slope_arithmetic(x_lr, y_lr, z_lr)
-plot_metric_distribution(
-    metric_values=values_sl_lr,
-    print_label="Mean volume Slope Product Logistic Regression",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Logistic Regression)",
-    bar_label="Logistic Regression"
-)
-
-# Histogram of the slope product metric RF
-values_sl_rf = slope_arithmetic(x_rf, y_rf, z_rf)
-plot_metric_distribution(
-    metric_values=values_sl_rf,
-    print_label="Mean volume Slope Product Random Forest",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Random Forest)",
-    bar_label="Random Forest"
-)
-
-# Histogram of the slope product metric XGB
-values_sl_xgb = slope_arithmetic(x_xgb, y_xgb, z_xgb)
-plot_metric_distribution(
-    metric_values=values_sl_xgb,
-    print_label="Mean volume Slope Product XGBoosting",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (XGBoosting)",
-    bar_label="XGBoosting"
-)
-
-# Histogram of the slope product metric SE
-values_sl_se = slope_arithmetic(x_stacked, y_stacked, z_stacked)
-plot_metric_distribution(
-    metric_values=values_sl_se,
-    print_label="Mean volume Slope Product Stacked Ensemble",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Stacked Ensemble)",
-    bar_label="Stacked Ensemble"
-)
-
-# Histogram of the slope product metric VE
-values_sl_ve = slope_arithmetic(x_voting, y_voting, z_voting)
-plot_metric_distribution(
-    metric_values=values_sl_ve,
-    print_label="Mean volume Slope Product Voting Ensemble",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Voting Ensemble)",
-    bar_label="Voting Ensemble"
-)
-
-# Histogram of the slope product metric NN
-values_sl_nn = slope_arithmetic(x_neural, y_neural, z_neural)
-plot_metric_distribution(
-    metric_values=values_sl_nn,
-    print_label="Mean volume Slope Product Neural Network",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Neural Network)",
-    bar_label="Neural Network"
-)
-
-# Histogram of the slope product metric Random
-values_sl_r = slope_arithmetic(x_random, y_random, z_random)
-plot_metric_distribution(
-    metric_values=values_sl_r,
-    print_label="Mean volume Slope Product Random Classifier",
-    xlabel="Normalized Slope Product",
-    title="Histogram of Normalized Slope Product Values (Random Classifier)",
-    bar_label="Random Classifier"
-)
-
-plt.show()
-
-# Hypervolume approach
-def hypervolume(x, y, z):
-    v1 = np.array(x)
-    v2 = np.array(y)
-    v3 = np.array(z)
-
-    # Construct Gram matrix
-    g = np.array([
-        [np.dot(v1, v1), np.dot(v1, v2), np.dot(v1, v3)],
-        [np.dot(v2, v1), np.dot(v2, v2), np.dot(v2, v3)],
-        [np.dot(v3, v1), np.dot(v3, v2), np.dot(v3, v3)]
-    ])
-
-    # Hypervolume
-    volume = np.sqrt(np.linalg.det(g))
-
-    return volume
-
-# Hypervolume LR
-volume_lr = hypervolume(rgas_lr, rges_lr, rgrs_lr)
-print(f"Hypervolume LR: {volume_lr:.3f}")
-
-# Hypervolume RF
-volume_rf = hypervolume(rgas_rf, rges_rf, rgrs_rf)
-print(f"Hypervolume RF: {volume_rf:.3f}")
-
-# Hypervolume XGB
-volume_xgb = hypervolume(rgas_xgb, rges_xgb, rgrs_xgb)
-print(f"Hypervolume XGB: {volume_xgb:.3f}")
-
-# Hypervolume SE
-volume_se = hypervolume(rgas_se, rges_se, rgrs_se)
-print(f"Hypervolume SE: {volume_se:.3f}")
-
-# Hypervolume VE
-volume_ve = hypervolume(rgas_ve, rges_ve, rgrs_ve)
-print(f"Hypervolume VE: {volume_ve:.3f}")
-
-# Hypervolume NN
-volume_nn = hypervolume(rgas_nn, rges_nn, rgrs_nn)
-print(f"Hypervolume NN: {volume_nn:.3f}")
-
-# Hypervolume R
-volume_r = hypervolume(rgas_random, rges_random, rgrs_random)
-print(f"Hypervolume Random: {volume_r:.3f}")
 
 # TOPSIS approach
 best_x_list = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
