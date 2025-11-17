@@ -18,9 +18,9 @@ max-line-length = 128
 
 
 [tool.flake8]
-inline-quotes = '"'
+inline-quotes = "\""
 docstring-quotes = "\"\"\""
-multiline-quotes = '"""'
+multiline-quotes = "\"\"\""
 max-line-length = 128
 exclude =[".git",
           "__pycache__",
