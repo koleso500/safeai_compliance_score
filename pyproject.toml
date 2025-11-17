@@ -1,9 +1,8 @@
 [tool.isort]
-extend_skip = ["venv", ".venv", "migrations", "data", "static", "logs", "drafts"]
+extend_skip = [".git", "__pycache__", "venv", ".venv", "data", "logs", "drafts"]
 
 [tool.pylint]
-ignore=["venv", ".venv", "migrations", "data", "static", "logs", "drafts"]
-generated-members=["func.now*"]
+ignore=[".git", "__pycache__", "venv", ".venv", "data", "logs", "drafts"]
 disable=[
     "C0114", # missing-module-docstring
     "C0115", # missing-class-docstring
@@ -18,7 +17,7 @@ max-line-length = 128
 
 
 [tool.flake8]
-inline-quotes = "\""
+inline-quotes = "'"
 docstring-quotes = "\"\"\""
 multiline-quotes = "\"\"\""
 max-line-length = 128
@@ -26,9 +25,7 @@ exclude =[".git",
           "__pycache__",
           "venv",
           ".venv",
-          "migrations",
           "data",
-          "static",
           "logs",
           "drafts"
 ]
