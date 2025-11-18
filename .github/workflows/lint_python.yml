@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        linter: [isort, pylint, flake8]
+        linter: [ruff]
       fail-fast: false
 
     steps:
@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install isort==6.0.1 pylint==3.3.7 flake8==7.3.0 Flake8-pyproject==1.2.3 flake8-quotes==3.4.0
+        pip install isort==6.0.1 pylint==3.3.7 flake8==7.3.0 Flake8-pyproject==1.2.3 flake8-quotes==3.4.0 ruff==0.14.5
 
     - name: Run isort
       if: matrix.linter == 'isort'
@@ -34,3 +34,11 @@ jobs:
     - name: Run flake8
       if: matrix.linter == 'flake8'
       run: flake8 .
+
+    - name: Run ruff linter
+      if: matrix.linter == 'ruff'
+      run: ruff check --no-fix --exit-non-zero-on-fix
+
+    - name: Run ruff formatter
+      if: matrix.linter == 'ruff-formatter'
+      run: ruff format --check --diff
