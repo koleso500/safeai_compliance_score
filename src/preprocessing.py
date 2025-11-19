@@ -105,6 +105,59 @@ def clean_data(data):
     return data_clean
 
 
+def create_subsample(data, target_column, sample_size=None, sample_fraction=0.1, random_state=42):
+    """
+    Create a stratified subsample maintaining class balance
+
+    Parameters
+    ----------
+    data: pandas DataFrame
+    target_column: Name of target variable
+    sample_size: Absolute number of samples (optional)
+    sample_fraction: Fraction of data to sample (default 0.1 = 10%)
+    random_state: Random seed for reproducibility
+
+    Returns
+    -------
+    Stratified subsample DataFrame
+    """
+    from sklearn.model_selection import train_test_split
+
+    print("\n" + "=" * 60)
+    print("CREATING STRATIFIED SUBSAMPLE")
+    print("=" * 60)
+
+    # Check class distribution before
+    print(f"\nOriginal data shape: {data.shape}")
+    print(f"Original class distribution:")
+    print(data[target_column].value_counts())
+    print(f"Original class proportions:")
+    print(data[target_column].value_counts(normalize=True))
+
+    # Calculate sample size
+    if sample_size is None:
+        sample_size = int(len(data) * sample_fraction)
+
+    # Stratified sampling
+    _, sample_data = train_test_split(
+        data,
+        test_size=sample_size,
+        random_state=random_state,
+        stratify=data[target_column]
+    )
+
+    # Check class distribution after
+    print(f"\nSample data shape: {sample_data.shape}")
+    print(f"Sample class distribution:")
+    print(sample_data[target_column].value_counts())
+    print(f"Sample class proportions:")
+    print(sample_data[target_column].value_counts(normalize=True))
+
+    print("=" * 60)
+
+    return sample_data
+
+
 def save_clean_data(data, save_path, dataset_name):
     """
 
@@ -127,7 +180,7 @@ def save_clean_data(data, save_path, dataset_name):
     return file_path
 
 
-def preprocess(raw_data_path, save_dir, dataset_name):
+def preprocess(raw_data_path, save_dir, dataset_name, create_sample=False, sample_fraction=0.1):
     """
     Preprocessing pipeline
 
@@ -136,6 +189,8 @@ def preprocess(raw_data_path, save_dir, dataset_name):
     raw_data_path: Path to raw data CSV
     save_dir: Directory to save cleaned data
     dataset_name: Name identifier for the dataset
+    create_sample: Whether to create a subsample for testing
+    sample_fraction: Fraction of data to sample (default 0.1)
 
     Returns
     -------
@@ -143,9 +198,9 @@ def preprocess(raw_data_path, save_dir, dataset_name):
 
     """
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("DATA PREPROCESSING")
-    print("="*60)
+    print("=" * 60)
 
     # Load raw data
     data = load_raw_data(raw_data_path)
@@ -153,12 +208,22 @@ def preprocess(raw_data_path, save_dir, dataset_name):
     # Clean data
     data_clean = clean_data(data)
 
+    # Create subsample if requested
+    if create_sample:
+        data_clean = create_subsample(
+            data_clean,
+            target_column=DATASET_CONFIG["target_column"],
+            sample_fraction=sample_fraction,
+            random_state=42
+        )
+        dataset_name = f"{dataset_name}_sample"
+
     # Save cleaned data
     clean_data_path = save_clean_data(data_clean, save_dir, dataset_name)
 
-    print("="*60)
+    print("=" * 60)
     print("PREPROCESSING COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
     return clean_data_path
 

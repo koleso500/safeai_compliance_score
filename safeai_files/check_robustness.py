@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 import torch
-from typing import Union
+from typing import Union, Literal
 from safeai_files.utils import check_nan, convert_to_dataframe, find_yhat, validate_variables
 from xgboost import XGBClassifier, XGBRegressor
 
@@ -148,28 +148,45 @@ def rgr_single(xtest: pd.DataFrame,
 
 
 def rgr_all(xtest: pd.DataFrame,
-                     yhat: list,
-                     model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
-                     torch.nn.Module],
-                     perturbation_percentage=0.05):
+            yhat: list,
+            model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier,
+            XGBRegressor, BaseEstimator, torch.nn.Module],
+            perturbation_percentage = 0.05,
+            perturbation_strategy: Literal['percentile_swap', 'gaussian_noise'] = 'percentile_swap',
+            seed: int = None,
+            scaler = None,
+            xtest_original: pd.DataFrame = None):
     """
     Compute RANK GRADUATION Robustness (RGR) MEASURE for all variables simultaneously.
 
     Parameters
     ----------
     xtest : pd.DataFrame
-            A dataframe including test data.
+        A dataframe including test data.
     yhat : list
-            A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
-            A trained model, which could be a classifier or regressor.
-    perturbation_percentage: float
-            A percentage value for perturbation.
+        A list of predicted values.
+    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor,
+                  BaseEstimator, torch.nn.Module]
+        A trained model, which could be a classifier or regressor.
+    perturbation_percentage : float
+        A percentage value for perturbation intensity.
+        - For 'percentile_swap': percentage of tail values to swap
+        - For 'gaussian_noise': noise standard deviation as fraction of entire data std
+    perturbation_strategy : str
+        - 'percentile_swap': Swap tail percentiles
+        - 'gaussian_noise': Add Gaussian noise to data
+    seed : int
+        Random seed for reproducibility (only with 'gaussian_noise')
+    scaler :
+        Use if features are scaled. Noise is added in original scale then re-scaled.
+    xtest_original : pd.DataFrame
+        Original unscaled test data. Required when scaler.
 
     Returns
     -------
     float
-            The overall RGR value.
+        The overall RGR value.
+
     """
     # Convert inputs to DataFrames and concatenate them
     xtest, yhat = convert_to_dataframe(xtest, yhat)
@@ -180,10 +197,51 @@ def rgr_all(xtest: pd.DataFrame,
     # Get all variables in xtest
     variables = xtest.columns.tolist()
 
-    # Perturb all variables simultaneously
-    xtest_pert = xtest.copy()
-    for var in variables:
-        xtest_pert[var] = perturb(xtest_pert, var, perturbation_percentage)[var]
+    # Perturb based on strategy
+    if perturbation_strategy == 'percentile_swap':
+        xtest_pert = xtest.copy()
+        for var in variables:
+            xtest_pert[var] = perturb(xtest_pert, var, perturbation_percentage)[var]
+
+    elif perturbation_strategy == 'gaussian_noise':
+        if seed is not None:
+            np.random.seed(seed)
+
+        if scaler is not None and xtest_original is not None:
+            # Add noise in original scale, then re-scale
+            base_std = np.std(xtest_original.values)
+            noise = np.random.normal(0.0, perturbation_percentage * base_std,
+                                     size=xtest_original.shape).astype(np.float32)
+
+            # Add noise to original data
+            xtest_perturbed_original = xtest_original.values + noise
+
+            xtest_perturbed_df = pd.DataFrame(xtest_perturbed_original,
+                                              columns=xtest_original.columns,
+                                              index=xtest_original.index)
+
+            # Re-scale the perturbed data
+            xtest_pert_array = scaler.transform(xtest_perturbed_df)
+
+        else:
+            # Calculate base std
+            base_std = np.std(xtest.values)
+
+            # Generate Gaussian noise
+            noise = np.random.normal(0.0, perturbation_percentage * base_std,
+                                    size=xtest.shape).astype(np.float32)
+
+            # Add noise to features
+            xtest_pert_array = xtest.values + noise
+
+        # Convert back to DataFrame
+        xtest_pert = pd.DataFrame(xtest_pert_array,
+                                  columns=xtest.columns,
+                                  index=xtest.index)
+
+    else:
+        raise ValueError(f"Unknown perturbation strategy: {perturbation_strategy}. "
+                         f"Choose from: 'percentile_swap', 'gaussian_noise'")
 
     # Get perturbed predictions
     yhat_pert = find_yhat(model, xtest_pert)

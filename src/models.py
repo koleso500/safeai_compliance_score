@@ -1,8 +1,40 @@
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.metrics import f1_score
 from xgboost import XGBClassifier
+import torch
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+import numpy as np
+
+
+def logistic_regression_params(trial):
+    """
+    Define hyperparameter search space for Logistic Regression
+
+    Parameters
+    ----------
+    trial: trial object
+
+    Returns
+    -------
+    Dictionary of hyperparameters
+
+    """
+
+    params = {
+        'C': trial.suggest_float('C', 0.001, 100, log=True),
+        'penalty': trial.suggest_categorical('penalty', ['l2', None]),
+        'max_iter': 1000,
+        'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced']),
+        'solver': 'lbfgs',
+    }
+
+    return params
 
 
 def random_forest_params(trial):
@@ -29,7 +61,7 @@ def random_forest_params(trial):
                                                                    0.8, 0.9, 1]),
         'max_leaf_nodes': trial.suggest_int('max_leaf_nodes', 10, 1000),
         'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced', 'balanced_subsample']),
-        'bootstrap': trial.suggest_categorical('bootstrap', [True, False])
+        'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
     }
     return params
 
@@ -81,7 +113,10 @@ def sem_params(trial):
 
     params = {
         'cv': trial.suggest_int('cv', 3, 10),
-        'final_estimator_C': trial.suggest_float('final_estimator_C', 0.01, 10, log=True),
+        'final_C': trial.suggest_float('final_C', 0.001, 100, log=True),
+        'final_penalty': trial.suggest_categorical('final_penalty', ['l2', None]),
+        'final_max_iter': trial.suggest_int('final_max_iter', 100, 1000),
+        'final_class_weight': trial.suggest_categorical('final_class_weight', [None, 'balanced']),
     }
     return params
 
@@ -102,6 +137,31 @@ def vem_params(trial):
 
     params = {
         'voting': trial.suggest_categorical('voting', ['hard', 'soft']),
+    }
+    return params
+
+def svm_params(trial):
+    """
+    Define hyperparameter search space for Support Vector Machine
+
+    Parameters
+    ----------
+    trial: trial object
+
+    Returns
+    -------
+    Dictionary of hyperparameters
+
+    """
+
+    params = {
+        'C': trial.suggest_float('C', 0.001, 100, log=True),
+        'kernel': trial.suggest_categorical('kernel', ['linear', 'rbf', 'poly', 'sigmoid']),
+        'gamma': trial.suggest_categorical('gamma', ['scale', 'auto']),
+        'degree': trial.suggest_int('degree', 2, 5),  # for poly kernel
+        'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced']),
+        'probability': True, # always true for predict_proba
+        'max_iter': 100000,
     }
     return params
 
@@ -136,6 +196,151 @@ class NeuralNetwork(nn.Module):
         for layer in self.layers:
             x = layer(x)
         return x
+
+
+class NeuralNetworkClassifier(BaseEstimator, ClassifierMixin):
+    """
+
+    """
+
+    def __init__(self, hidden_layers=None, dropout_rate=0.3, learning_rate=0.001,
+                 batch_size=32, epochs=50, random_state=42, verbose=0):
+        self.hidden_layers = hidden_layers if hidden_layers is not None else [64]
+        self.dropout_rate = dropout_rate
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.random_state = random_state
+        self.verbose = verbose
+        self.model = None
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.classes_ = None
+
+    def fit(self, x, y):
+        """
+        Train the neural network
+
+        Parameters
+        ----------
+        x: Training features
+        y: Training labels
+
+        Returns
+        -------
+        self
+
+        """
+        # Set random seeds
+        torch.manual_seed(self.random_state)
+        np.random.seed(self.random_state)
+
+        # Store classes
+        self.classes_ = np.unique(y)
+
+        # Convert to numpy if needed
+        if hasattr(x, 'values'):
+            x = x.values
+        if hasattr(y, 'values'):
+            y = y.values
+
+        # Convert to tensors
+        x_tensor = torch.FloatTensor(x).to(self.device)
+        y_tensor = torch.FloatTensor(y.reshape(-1, 1)).to(self.device)
+
+        # Create dataset and dataloader
+        dataset = TensorDataset(x_tensor, y_tensor)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+
+        # Initialize model
+        input_size = x.shape[1]
+        self.model = NeuralNetwork(input_size, self.hidden_layers, self.dropout_rate).to(self.device)
+
+        # Loss and optimizer
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+
+        # Training loop
+        self.model.train()
+        for epoch in range(self.epochs):
+            epoch_loss = 0
+            for batch_x, batch_y in dataloader:
+                # Forward pass
+                outputs = self.model(batch_x)
+                loss = criterion(outputs, batch_y)
+
+                # Backward pass
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+
+            if self.verbose > 0 and (epoch + 1) % 10 == 0:
+                avg_loss = epoch_loss / len(dataloader)
+                print(f"Epoch [{epoch + 1}/{self.epochs}], Loss: {avg_loss:.4f}")
+
+        return self
+
+    def predict_proba(self, x):
+        """
+        Predict class probabilities
+
+        Parameters
+        ----------
+        x: Features
+
+        Returns
+        -------
+        Array of probabilities for each class
+
+        """
+        self.model.eval()
+
+        # Convert to numpy if needed
+        if hasattr(x, 'values'):
+            x = x.values
+
+        x_tensor = torch.FloatTensor(x).to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(x_tensor)
+            probs = torch.sigmoid(outputs).cpu().numpy()
+
+        # Return probabilities for both classes
+        return np.hstack([1 - probs, probs])
+
+    def predict(self, x):
+        """
+        Predict class labels
+
+        Parameters
+        ----------
+        x: Features
+
+        Returns
+        -------
+        Array of predicted class labels
+
+        """
+        probs = self.predict_proba(x)
+        return (probs[:, 1] >= 0.5).astype(int)
+
+    def score(self, x, y, sample_weight=None):
+        """
+        Return F1 score
+
+        Parameters
+        ----------
+        x: Features
+        y: True labels
+        sample_weight: Sample weights (optional)
+
+        Returns
+        -------
+        F1 score
+
+        """
+        return f1_score(y, self.predict(x), sample_weight=sample_weight)
 
 
 def neural_network_params(trial):
@@ -184,14 +389,14 @@ def create_model(model_name, params, base_models=None):
 
     """
 
-    if model_name == "random_forest":
+    if model_name == "logistic_regression":
+        return LogisticRegression(**params, random_state=42, n_jobs=-1)
+
+    elif model_name == "random_forest":
         return RandomForestClassifier(**params, random_state=42, n_jobs=-1)
 
     elif model_name == "xgboost":
         return XGBClassifier(**params, random_state=42, n_jobs=-1)
-
-    elif model_name == "random":
-        return DummyClassifier(strategy='prior', random_state=42)
 
     elif model_name == "sem":
         if base_models is None:
@@ -200,9 +405,17 @@ def create_model(model_name, params, base_models=None):
         # Create list of (name, model) tuples for StackingClassifier
         estimators = [(name, model) for name, model in base_models.items()]
 
-        # Extract final estimator params
-        final_estimator_c = params.pop('final_estimator_C', 1.0)
-        final_estimator = LogisticRegression(C=final_estimator_c, random_state=42, max_iter=1000)
+        # Extract and create final estimator
+        final_estimator_params = {
+            'C': params.pop('final_C', 1.0),
+            'penalty': params.pop('final_penalty', 'l2'),
+            'max_iter': params.pop('final_max_iter', 1000),
+            'class_weight': params.pop('final_class_weight', None),
+            'solver': 'lbfgs',
+            'random_state': 42,
+        }
+
+        final_estimator = LogisticRegression(**final_estimator_params)
 
         return StackingClassifier(
             estimators=estimators,
@@ -223,12 +436,16 @@ def create_model(model_name, params, base_models=None):
             n_jobs=-1
         )
 
+    elif model_name == "svm":
+        # Ensure probability is always True for SVM
+        params['probability'] = True
+        return SVC(**params, random_state=42)
+
     elif model_name == "neural_network":
-        return {
-            'type': 'neural_network',
-            'params': params,
-            'model_class': NeuralNetwork
-        }
+        return NeuralNetworkClassifier(**params, random_state=42)
+
+    elif model_name == "random":
+        return DummyClassifier(strategy='prior', random_state=42)
 
     else:
         raise ValueError(f"Unknown model: {model_name}")
@@ -274,8 +491,11 @@ def get_required_base_models(model_name):
 
 # Dictionary mapping model names to their parameter functions
 MODEL_PARAM_FUNCTIONS = {
+    "logistic_regression": logistic_regression_params,
     "random_forest": random_forest_params,
     "xgboost": xgboost_params,
     "vem": vem_params,
     "sem": sem_params,
+    "svm": svm_params,
+    "neural_network": neural_network_params,
 }

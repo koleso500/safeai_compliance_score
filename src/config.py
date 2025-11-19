@@ -7,20 +7,33 @@ DATASET_CONFIG = {
     "dataset_name": "ny_2017",  # Identifier for saving files
     "raw_data_file": "hmda_2017_ny_all-records_labels.csv",
     "target_column": "action_taken",
+    "create_sample": True,  # Set to True for testing pipeline
+    "sample_fraction": 0.1   # Use 10% of data
 }
 
+
 MODELS_TO_TRAIN = [
-    "random_forest",
+    #"logistic_regression",
+    #"random_forest",
     #"xgboost",
     #"vem",
     #"sem",
+    "svm",
+    #"neural_network",
+    #"random",
+]
+
+MODELS_REQUIRING_SCALING = [
+    'logistic_regression',
+    'svm',
+    'neural_network',
 ]
 
 TRAINING_CONFIG = {
     "test_size": 0.2,
     "random_state": 15,
-    "cv_folds": 5,
-    "n_trials": 5,            # Optuna optimization trials
+    "cv_folds": 3,
+    "n_trials": 10,            # Optuna optimization trials
     "scoring_metric": "f1",    # Optimization metric
 }
 
