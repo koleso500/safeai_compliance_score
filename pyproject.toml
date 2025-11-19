@@ -1,0 +1,47 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 128
+output-format = "concise"
+lint.select = ["ALL"]
+lint.ignore = [
+    "PTH",     # flake8-use-pathlib
+    "D",       # pydocstyle
+    "FIX",     # flake8-fixme
+    "PGH",     # pygrep-hooks (noqa)
+    "ERA",     # commented-out-code
+    "COM",     # flake8-commas
+
+    "T201",    # print
+    "TD002",   # missing-todo-author
+    "TD003",   # missing-todo-link
+    "FBT002",  # boolean-default-value-positional-argument
+    "BLE001",  # blind-except
+    "S101",    # assert
+    "RUF100",  # unused-noqa
+    "PLR2004", # magic-value-comparison
+    "TRY003",  # raise-vanilla-args
+    "SIM114",  # if-with-same-arms
+    "SIM103",  # needless-bool
+    "B904",    # raise-without-from-inside-except
+    "RET504",  # unnecessary-assign
+    "RET505",  # superfluous-else-return
+    "INP001",  # implicit-namespace-package
+    "EM102",   # f-string-in-exception
+    "S311",    # suspicious-non-cryptographic-random-usage
+]
+
+exclude = [
+    "data",
+    "static",
+    "logs",
+    "drafts"]
+
+[tool.ruff.lint.flake8-annotations]
+suppress-none-returning = true
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+
+[tool.ruff.format]
+quote-style="single"
