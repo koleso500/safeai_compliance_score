@@ -9,11 +9,11 @@ import torch
 from typing import Union
 from xgboost import XGBClassifier, XGBRegressor
 
+from src.models import QSVCWrapper
+
 
 def manipulate_testdata(xtrain: pd.DataFrame, 
-                        xtest: pd.DataFrame, 
-                        model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
-                               torch.nn.Module],
+                        xtest: pd.DataFrame,
                         variable: str):
     """
     Manipulate the given variable column in test data based on values of that variable in train data.
@@ -24,8 +24,6 @@ def manipulate_testdata(xtrain: pd.DataFrame,
             A dataframe including train data.
     xtest : pd.DataFrame
             A dataframe including test data.
-    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
-            A trained model, which could be a classifier or regressor.
     variable: str 
             Name of variable.
 
@@ -33,28 +31,20 @@ def manipulate_testdata(xtrain: pd.DataFrame,
     -------
     pd.DataFrame
             The manipulated data.
-    """
-    # create xtest_rm
-    xtest_rm = xtest.copy()
-    if isinstance(model, (BaseEstimator, XGBClassifier, XGBRegressor)):
-        # specific settings for sklearn and xgboost models
-        if isinstance(xtrain[variable].dtype, pd.CategoricalDtype):
-            mode_value = xtrain[variable].mode()[0]
-            xtest_rm[variable] = mode_value
-        else:
-            mean_value = xtrain[variable].mean()
-            xtest_rm[variable] = mean_value
 
-    elif isinstance(model, torch.nn.Module):
-        # specific settings for torch models
-        if isinstance(xtrain[variable].dtype, pd.CategoricalDtype):
-            mode_value = xtrain[variable].mode()[0]
-            xtest_rm[variable] = mode_value
-        else:
-            mean_value = xtrain[variable].mean()
-            xtest_rm[variable] = mean_value
+    """
+    xtest_rm = xtest.copy()
+
+    # Detect categorical variable
+    if isinstance(xtrain[variable].dtype, pd.CategoricalDtype) or xtrain[variable].dtype == object:
+        # Replace category with mode
+        mode_value = xtrain[variable].mode(dropna=True)[0]
+        xtest_rm[variable] = mode_value
     else:
-        raise ValueError("Unsupported model type")
+        # Replace numeric variable with mean
+        mean_value = xtrain[variable].mean()
+        xtest_rm[variable] = mean_value
+
     return xtest_rm
 
 
@@ -143,6 +133,8 @@ def find_yhat(model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
     -------
             The yhat value.
     """
+    if isinstance(model, QSVCWrapper):
+        return model.predict_proba(xtest)[:, 1]
     if is_classifier(model):
         yhat = [x[1] for x in model.predict_proba(xtest)]
     elif is_regressor(model):
@@ -156,6 +148,8 @@ def find_yhat(model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
             yhat = yhat[:, 1].numpy()
         else:
             yhat = yhat.numpy()
+    elif hasattr(model, "predict_proba"):
+        return model.predict_proba(xtest)[:, 1]
     else:
         raise ValueError("The model type is not recognized for prediction")
 
