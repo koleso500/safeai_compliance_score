@@ -1,15 +1,20 @@
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier, StackingClassifier
-from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.metrics import f1_score
-from xgboost import XGBClassifier
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
-import numpy as np
+
+from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
+from sklearn.svm import SVC
+from scipy.special import expit
+from torch.utils.data import DataLoader, TensorDataset
+from xgboost import XGBClassifier
+from qiskit_machine_learning.algorithms import QSVC
+from qiskit_machine_learning.kernels import FidelityQuantumKernel
+from qiskit.circuit.library import PauliFeatureMap
 
 
 def logistic_regression_params(trial):
@@ -25,10 +30,9 @@ def logistic_regression_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'C': trial.suggest_float('C', 0.001, 100, log=True),
-        'penalty': trial.suggest_categorical('penalty', ['l2', None]),
+        'penalty': trial.suggest_categorical('penalty', ['l2']),
         'max_iter': 1000,
         'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced']),
         'solver': 'lbfgs',
@@ -50,18 +54,19 @@ def random_forest_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
         'max_depth': trial.suggest_categorical('max_depth', [None, 5, 10, 15, 20]),
         'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
         'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 20),
         'min_weight_fraction_leaf': trial.suggest_float('min_weight_fraction_leaf', 0.0, 0.5),
-        'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7,
-                                                                   0.8, 0.9, 1]),
+        'max_features': trial.suggest_categorical(
+            'max_features',
+            ['sqrt', 'log2', 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        ),
         'max_leaf_nodes': trial.suggest_int('max_leaf_nodes', 10, 1000),
         'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced', 'balanced_subsample']),
-        'bootstrap': trial.suggest_categorical('bootstrap', [True, False]),
+        'bootstrap': trial.suggest_categorical('bootstrap', [True, False])
     }
     return params
 
@@ -79,7 +84,6 @@ def xgboost_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000),
         'max_depth': trial.suggest_int('max_depth', 3, 10),
@@ -92,7 +96,6 @@ def xgboost_params(trial):
         'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
         'max_delta_step': trial.suggest_int('max_delta_step', 0, 10),
         'scale_pos_weight': trial.suggest_float('scale_pos_weight', 0.5, 10),
-        'random_state': 42,
     }
     return params
 
@@ -110,11 +113,10 @@ def sem_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'cv': trial.suggest_int('cv', 3, 10),
         'final_C': trial.suggest_float('final_C', 0.001, 100, log=True),
-        'final_penalty': trial.suggest_categorical('final_penalty', ['l2', None]),
+        'final_penalty': trial.suggest_categorical('final_penalty', ['l2']),
         'final_max_iter': trial.suggest_int('final_max_iter', 100, 1000),
         'final_class_weight': trial.suggest_categorical('final_class_weight', [None, 'balanced']),
     }
@@ -134,11 +136,11 @@ def vem_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'voting': trial.suggest_categorical('voting', ['hard', 'soft']),
     }
     return params
+
 
 def svm_params(trial):
     """
@@ -153,7 +155,6 @@ def svm_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'C': trial.suggest_float('C', 0.001, 100, log=True),
         'kernel': trial.suggest_categorical('kernel', ['linear', 'rbf', 'poly', 'sigmoid']),
@@ -161,7 +162,7 @@ def svm_params(trial):
         'degree': trial.suggest_int('degree', 2, 5),  # for poly kernel
         'class_weight': trial.suggest_categorical('class_weight', [None, 'balanced']),
         'probability': True, # always true for predict_proba
-        'max_iter': 100000,
+        'max_iter': 50000,
     }
     return params
 
@@ -294,7 +295,9 @@ class NeuralNetworkClassifier(BaseEstimator, ClassifierMixin):
         Array of probabilities for each class
 
         """
-        self.model.eval()
+
+        if self.model is None:
+            raise RuntimeError('Model is not fitted yet')
 
         # Convert to numpy if needed
         if hasattr(x, 'values'):
@@ -302,6 +305,7 @@ class NeuralNetworkClassifier(BaseEstimator, ClassifierMixin):
 
         x_tensor = torch.FloatTensor(x).to(self.device)
 
+        self.model.eval()
         with torch.no_grad():
             outputs = self.model(x_tensor)
             probs = torch.sigmoid(outputs).cpu().numpy()
@@ -356,7 +360,6 @@ def neural_network_params(trial):
     Dictionary of hyperparameters
 
     """
-
     params = {
         'hidden_layers': trial.suggest_categorical('hidden_layers', [
             [64],
@@ -369,6 +372,89 @@ def neural_network_params(trial):
         'learning_rate': trial.suggest_float('learning_rate', 0.0001, 0.01, log=True),
         'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
         'epochs': trial.suggest_int('epochs', 10, 100),
+    }
+    return params
+
+
+class QSVCWrapper(BaseEstimator, ClassifierMixin):
+
+    """
+    Sklearn-style QSVC to treat it like a normal classifier
+
+    """
+    def __init__(self, c=1.0, tol=1e-3, max_iter=-1, feature_dim=4):
+        self.c = c
+        self.tol = tol
+        self.max_iter = max_iter
+        self.feature_dim = feature_dim
+
+        feature_map = PauliFeatureMap(
+            feature_dimension=4,
+            reps=1,
+            paulis=['Z', 'ZZ'],
+        )
+
+        quantum_kernel = FidelityQuantumKernel(feature_map=feature_map)
+
+        self.qsvc_ = QSVC(
+            quantum_kernel=quantum_kernel,
+            C=c,
+            tol=tol,
+            max_iter=max_iter,
+            probability=True,
+        )
+
+    @staticmethod
+    def _to_array(x):
+        if hasattr(x, "values"):
+            return x.values
+        return np.asarray(x)
+
+    def fit(self, x, y):
+        x_arr = self._to_array(x)
+        self.qsvc_.fit(x_arr, y)
+        return self
+
+    def predict(self, x):
+        x_arr = self._to_array(x)
+        return self.qsvc_.predict(x_arr)
+
+    def predict_proba(self, x):
+        x_arr = self._to_array(x)
+        try:
+            return self.qsvc_.predict_proba(x_arr)
+        except:
+            scores = self.qsvc_.decision_function(x_arr)
+
+            # Min-max scale to [0,1]
+            min_s = scores.min()
+            max_s = scores.max()
+            if max_s - min_s < 1e-12:
+                probs_pos = np.zeros_like(scores)
+            else:
+                probs_pos = (scores - min_s) / (max_s - min_s)
+
+            probs_neg = 1 - probs_pos
+            return np.column_stack((probs_neg, probs_pos))
+
+
+def qsvc_params(trial):
+    """
+    Define hyperparameter search space for Quantum SVM (QSVC).
+
+    Parameters
+    ----------
+    trial: trial object
+
+    Returns
+    -------
+    Dictionary of hyperparameters
+
+    """
+    params =  {
+        "C": trial.suggest_float("C", 1e-2, 1e2, log=True),
+        "tol": trial.suggest_float("tol", 1e-5, 1e-2, log=True),
+        "max_iter": trial.suggest_int("max_iter", 1000, 5000),
     }
     return params
 
@@ -388,29 +474,30 @@ def create_model(model_name, params, base_models=None):
     Untrained model instance
 
     """
+    params_local = dict(params)
 
-    if model_name == "logistic_regression":
-        return LogisticRegression(**params, random_state=42, n_jobs=-1)
+    if model_name == 'logistic_regression':
+        return LogisticRegression(**params_local, random_state=42, n_jobs=-1)
 
-    elif model_name == "random_forest":
-        return RandomForestClassifier(**params, random_state=42, n_jobs=-1)
+    elif model_name == 'random_forest':
+        return RandomForestClassifier(**params_local, random_state=42, n_jobs=-1)
 
-    elif model_name == "xgboost":
-        return XGBClassifier(**params, random_state=42, n_jobs=-1)
+    elif model_name == 'xgboost':
+        return XGBClassifier(**params_local, random_state=42, n_jobs=-1)
 
-    elif model_name == "sem":
+    elif model_name == 'sem':
         if base_models is None:
-            raise ValueError("SEM requires base_models")
+            raise ValueError('SEM requires base_models')
 
-        # Create list of (name, model) tuples for StackingClassifier
+        # Base estimators
         estimators = [(name, model) for name, model in base_models.items()]
 
         # Extract and create final estimator
         final_estimator_params = {
-            'C': params.pop('final_C', 1.0),
-            'penalty': params.pop('final_penalty', 'l2'),
-            'max_iter': params.pop('final_max_iter', 1000),
-            'class_weight': params.pop('final_class_weight', None),
+            'C': params_local.pop('final_C', 1.0),
+            'penalty': params_local.pop('final_penalty', 'l2'),
+            'max_iter': params_local.pop('final_max_iter', 1000),
+            'class_weight': params_local.pop('final_class_weight', None),
             'solver': 'lbfgs',
             'random_state': 42,
         }
@@ -420,35 +507,48 @@ def create_model(model_name, params, base_models=None):
         return StackingClassifier(
             estimators=estimators,
             final_estimator=final_estimator,
-            cv=params.get('cv', 5),
+            cv='prefit',
+            stack_method='auto',
             n_jobs=-1
         )
 
-    elif model_name == "vem":
+    elif model_name == 'vem':
         if base_models is None:
-            raise ValueError("VEM requires base_models")
-        # Create list of (name, model) tuples for VotingClassifier
+            raise ValueError('VEM requires base_models')
+
+        # Base estimators
         estimators = [(name, model) for name, model in base_models.items()]
 
         return VotingClassifier(
             estimators=estimators,
-            voting=params.get('voting', 'soft'),
+            voting=params_local.get('voting', 'soft'),
             n_jobs=-1
         )
 
-    elif model_name == "svm":
+    elif model_name == 'svm':
         # Ensure probability is always True for SVM
-        params['probability'] = True
-        return SVC(**params, random_state=42)
+        params_local['probability'] = True
+        return SVC(**params_local, random_state=42)
 
-    elif model_name == "neural_network":
-        return NeuralNetworkClassifier(**params, random_state=42)
+    elif model_name == 'neural_network':
+        return NeuralNetworkClassifier(**params_local, random_state=42)
 
-    elif model_name == "random":
+    elif model_name == 'random':
         return DummyClassifier(strategy='prior', random_state=42)
 
+    elif model_name == "qsvc":
+        c = params_local.pop("C", 1.0)
+        tol = params_local.pop("tol", 1e-3)
+        max_iter = params_local.pop("max_iter", -1)
+
+        return QSVCWrapper(
+            c=c,
+            tol=tol,
+            max_iter=max_iter,
+        )
+
     else:
-        raise ValueError(f"Unknown model: {model_name}")
+        raise ValueError(f'Unknown model: {model_name}')
 
 
 def is_ensemble_model(model_name):
@@ -466,7 +566,7 @@ def is_ensemble_model(model_name):
 
     """
 
-    return model_name in ["vem", "sem"]
+    return model_name in ['vem', 'sem']
 
 
 def get_required_base_models(model_name):
@@ -483,19 +583,20 @@ def get_required_base_models(model_name):
 
     """
 
-    if model_name == "vem" or model_name == "sem":
-        return ["random_forest", "xgboost"]
+    if model_name == 'vem' or model_name == 'sem':
+        return ['random_forest', 'xgboost']
     else:
         return []
 
 
 # Dictionary mapping model names to their parameter functions
 MODEL_PARAM_FUNCTIONS = {
-    "logistic_regression": logistic_regression_params,
-    "random_forest": random_forest_params,
-    "xgboost": xgboost_params,
-    "vem": vem_params,
-    "sem": sem_params,
-    "svm": svm_params,
-    "neural_network": neural_network_params,
+    'logistic_regression': logistic_regression_params,
+    'random_forest': random_forest_params,
+    'xgboost': xgboost_params,
+    'vem': vem_params,
+    'sem': sem_params,
+    'svm': svm_params,
+    'neural_network': neural_network_params,
+    "qsvc": qsvc_params
 }

@@ -1,4 +1,3 @@
-from catboost import CatBoostClassifier, CatBoostRegressor
 import pandas as pd
 from sklearn.base import BaseEstimator
 import torch
@@ -12,7 +11,7 @@ def compute_rga_parity(xtrain: pd.DataFrame,
                        xtest: pd.DataFrame, 
                        ytest: list, 
                        yhat: list, 
-                       model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
+                       model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
                        torch.nn.Module],
                        protectedvariable: str):
     """
@@ -28,7 +27,7 @@ def compute_rga_parity(xtrain: pd.DataFrame,
             A list of actual values.
     yhat : list
             A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor. 
     protectedvariable: str 
             Name of the protected (sensitive) variable.

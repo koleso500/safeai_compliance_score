@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+from matplotlib.axes import Axes
 
 from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, PATHS, TOPSIS_IDEAL_VALUES, TOPSIS_WORST_VALUES
 from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
@@ -26,14 +27,13 @@ def load_safeai_results(model_name, dataset_name):
     Dictionary with x_final, y_final, z_final or None if not found/invalid
 
     """
-
     file_path = os.path.join(
-        PATHS["results_dir"],
-        f"{model_name}_{dataset_name}_evaluation.json"
+        PATHS['results_dir'],
+        f'{model_name}_{dataset_name}_evaluation.json'
     )
 
     if not os.path.exists(file_path):
-        logger.warning(f"Evaluation file not found for {model_name}: {file_path}")
+        logger.warning('Evaluation file not found for %s: %s', model_name, file_path)
         return None
 
     try:
@@ -44,7 +44,7 @@ def load_safeai_results(model_name, dataset_name):
             compliance = data.get('compliance', None)
 
             if compliance is None:
-                logger.warning(f"No compliance data found for {model_name}")
+                logger.warning("No 'compliance' key found in evaluation file for %s", model_name)
                 return None
 
             return {
@@ -54,57 +54,50 @@ def load_safeai_results(model_name, dataset_name):
             }
 
     except json.JSONDecodeError as json_error:
-        logger.error(f"Invalid JSON in {file_path}: {str(json_error)}")
-        return None
+        logger.error('Invalid JSON in %s: %s', file_path, json_error)
     except Exception as load_error:
-        logger.error(f"Error loading {file_path}: {str(load_error)}")
-        return None
+        logger.error('Error loading SafeAI results from %s: %s', file_path, load_error)
+
+    return None
 
 
 def extract_safeai_values(safeai_data):
     """
-    Extract x_final, y_final, z_final from SafeAI results with validation
+    Extract x_final, y_final, z_final from SAFE-AI results with validation
 
     Parameters
     ----------
-    safeai_data: Dictionary with SafeAI metrics
+    safeai_data: Dictionary with SAFE-AI metrics
 
     Returns
     -------
     Tuple of (x, y, z) or (None, None, None) if not found or invalid
 
     """
-
     if safeai_data is None:
         return None, None, None
 
-    x = safeai_data.get('x_final', None)
-    y = safeai_data.get('y_final', None)
-    z = safeai_data.get('z_final', None)
+    x = safeai_data.get('x_final')
+    y = safeai_data.get('y_final')
+    z = safeai_data.get('z_final')
 
     # Validate that values are lists/arrays and not empty
-    if x is not None and not isinstance(x, (list, np.ndarray)):
-        logger.warning(f"x_final is not a list/array: {type(x)}")
-        x = None
-    if y is not None and not isinstance(y, (list, np.ndarray)):
-        logger.warning(f"y_final is not a list/array: {type(y)}")
-        y = None
-    if z is not None and not isinstance(z, (list, np.ndarray)):
-        logger.warning(f"z_final is not a list/array: {type(z)}")
-        z = None
+    def validate_array(name: str, arr):
+        if arr is None:
+            return None
+        if not isinstance(arr, (list, np.ndarray)):
+            logger.warning('%s is not a list/array: %s', name, type(arr))
+            return None
+        if len(arr) == 0:
+            logger.warning('%s is empty', name)
+            return None
+        return list(arr)
 
-    # Check if arrays are empty
-    if x is not None and len(x) == 0:
-        logger.warning("x_final is empty")
-        x = None
-    if y is not None and len(y) == 0:
-        logger.warning("y_final is empty")
-        y = None
-    if z is not None and len(z) == 0:
-        logger.warning("z_final is empty")
-        z = None
+    x_valid = validate_array('x_final', x)
+    y_valid = validate_array('y_final', y)
+    z_valid = validate_array('z_final', z)
 
-    return x, y, z
+    return x_valid, y_valid, z_valid
 
 
 def load_all_model_results(models, dataset_name):
@@ -121,7 +114,6 @@ def load_all_model_results(models, dataset_name):
     Dictionary {model_name: {'x': x, 'y': y, 'z': z, 'data': safeai_data}}
 
     """
-
     all_results = {}
     failed_models = []
 
@@ -139,32 +131,37 @@ def load_all_model_results(models, dataset_name):
                         'z': z,
                         'data': safeai_data
                     }
-                    logger.info(f"✓ Loaded SafeAI data for {model_name}")
+                    logger.info('Loaded SafeAI data for %s', model_name)
                 else:
-                    logger.warning(f"{model_name}: Mismatched array lengths (x:{len(x)}, y:{len(y)}, z:{len(z)})")
+                    logger.warning(
+                        '%s: Mismatched array lengths (x=%d, y=%d, z=%d)',
+                        model_name,
+                        len(x),
+                        len(y),
+                        len(z),
+                    )
                     failed_models.append(model_name)
             else:
-                logger.warning(f"{model_name}: Incomplete SafeAI data (missing x, y, or z)")
+                logger.warning('%s: Incomplete SafeAI data (missing x,y or z)', model_name)
                 failed_models.append(model_name)
 
         except Exception as model_error:
-            logger.error(f"Failed to load {model_name}: {str(model_error)}")
+            logger.error('Failed to load SafeAI results for %s: %s', model_name, model_error)
             failed_models.append(model_name)
-            continue
 
     if failed_models:
-        logger.warning(f"Failed to load {len(failed_models)} model(s): {failed_models}")
+        logger.warning('Failed to load SafeAI results for %d model(s): %s', len(failed_models), failed_models)
 
     return all_results
 
 
-def calculate_differences(models_results, baseline_model='random'):
+def calculate_differences(model_results, baseline_model='random'):
     """
     Calculate performance differences relative to baseline
 
     Parameters
     ----------
-    models_results: Dictionary of all model results
+    model_results: Dictionary of all model results
     baseline_model: Name of baseline model (default: 'random')
 
     Returns
@@ -175,22 +172,22 @@ def calculate_differences(models_results, baseline_model='random'):
 
     differences = {}
 
-    if baseline_model not in models_results:
-        logger.warning(f"Baseline model '{baseline_model}' not found in results")
+    if baseline_model not in model_results:
+        logger.warning("Baseline model '%s' not found among results.", baseline_model)
         return differences
 
-    baseline_result = models_results[baseline_model]
+    baseline = model_results[baseline_model]
 
-    if any(v is None for v in [baseline_result['x'], baseline_result['y'], baseline_result['z']]):
-        logger.warning(f"Baseline model '{baseline_model}' has invalid data")
+    if any(baseline.get(k) is None for k in ("x", "y", "z")):
+        logger.warning("Baseline model '%s' has invalid data.", baseline_model)
         return differences
 
     try:
-        baseline_x = np.array(baseline_result['x'])
-        baseline_y = np.array(baseline_result['y'])
-        baseline_z = np.array(baseline_result['z'])
+        baseline_x = np.array(baseline['x'])
+        baseline_y = np.array(baseline['y'])
+        baseline_z = np.array(baseline['z'])
 
-        for model_name, result in models_results.items():
+        for model_name, result in model_results.items():
             if model_name == baseline_model:
                 continue
 
@@ -202,8 +199,14 @@ def calculate_differences(models_results, baseline_model='random'):
                 # Validate shapes match
                 if (model_x.shape != baseline_x.shape or
                         model_y.shape != baseline_y.shape or
-                        model_z.shape != baseline_z.shape):
-                    logger.warning(f"Shape mismatch for {model_name}, skipping difference calculation")
+                        model_z.shape != baseline_z.shape
+                ):
+                    logger.warning(
+                        'Shape mismatch for %s (x:%s vs %s); skipping difference calculation.',
+                        model_name,
+                        model_x.shape,
+                        baseline_x.shape,
+                    )
                     continue
 
                 x_diff = (model_x - baseline_x).tolist()
@@ -217,174 +220,275 @@ def calculate_differences(models_results, baseline_model='random'):
                 }
 
             except Exception as diff_error:
-                logger.error(f"Failed to calculate differences for {model_name}: {str(diff_error)}")
+                logger.error('Failed to calculate differences for %s: %s', model_name, diff_error)
                 continue
 
     except Exception as baseline_error:
-        logger.error(f"Failed to process baseline model: {str(baseline_error)}")
+        logger.error("Failed to process baseline model '%s': %s", baseline_model, baseline_error)
         return {}
 
     return differences
 
 
-def plot_all_model_curves(models_results, dataset_name):
+def plot_all_model_curves(m_results, dataset_name):
     """
-    Plot all model curves with error handling
+    Plot all model curves with error handling and robust subplot management.
 
     Parameters
     ----------
-    models_results: Dictionary of all model results
-    dataset_name: Name of the dataset
+    m_results : dict
+        Dictionary of all model results where keys are model names and values
+        contain 'x', 'y', and 'z' arrays
+    dataset_name : str
+        Name of the dataset for labeling
 
+    Returns
+    -------
+    str or None
+        Path to saved plot if successful, None otherwise
     """
+    if not m_results:
+        logger.warning('No model results available for plotting curves')
+        return None
 
-    if not models_results:
-        logger.warning("No model results to plot")
-        return
-
+    fig = None
     try:
-        num_models = len(models_results)
+        num_models = len(m_results)
         cols = 2
-        rows = (num_models + 1) // cols
+        rows = (num_models + cols - 1) // cols  # Ceiling division
 
         fig, axs = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-        if rows == 1 and cols == 1:
-            axs = np.array([axs])
-        axs = axs.flatten()
 
-        # Get x_rga length from first model
-        first_result = next(iter(models_results.values()))
-        x_rga = np.linspace(0, 1, len(first_result['y']))
+        # Flatten axes array for consistent indexing
+        if num_models == 1:
+            axs_flat = [axs]
+        elif rows == 1 or cols == 1:
+            axs_flat = list(axs.flat) if isinstance(axs, np.ndarray) else [axs]
+        else:
+            axs_flat = list(axs.flat)
 
-        for idx, (model_name, result) in enumerate(models_results.items()):
+        # Get x_range from first model
+        first_result = next(iter(m_results.values()))
+        x_range = np.linspace(0, 1, len(first_result['y']))
+
+        # Plot each model
+        for idx, (model_name, result) in enumerate(m_results.items()):
+            ax: Axes = axs_flat[idx]
             try:
                 plot_model_curves(
-                    x_rga,
+                    x_range,
                     [result['x'], result['y'], result['z']],
                     model_name=model_name,
-                    title=f"{model_name} Curves ({dataset_name})",
-                    ax=axs[idx]
+                    title=f'{model_name} Curves ({dataset_name})',
+                    ax=ax
                 )
             except Exception as plot_error:
-                logger.error(f"Failed to plot curves for {model_name}: {str(plot_error)}")
-                axs[idx].text(0.5, 0.5, f"Error plotting {model_name}",
-                              ha='center', va='center', transform=axs[idx].transAxes)
+                logger.error(
+                    'Failed to plot curves for %s: %s',
+                    model_name,
+                    plot_error,
+                    exc_info=True
+                )
+                ax.text(
+                    0.5, 0.5,
+                    f"Error plotting {model_name}",
+                    ha='center',
+                    va='center',
+                    transform=ax.transAxes,
+                    fontsize=12,
+                    color='red'
+                )
 
         # Hide unused subplots
-        for idx in range(num_models, len(axs)):
-            axs[idx].set_visible(False)
+        for idx in range(num_models, len(axs_flat)):
+            unused_ax: Axes = axs_flat[idx]
+            unused_ax.axis('off')
 
-        fig.suptitle(f'All Model Curves - {dataset_name}', fontsize=14, fontweight='bold')
-        fig.subplots_adjust(top=0.95, hspace=0.4)
-        plt.tight_layout()
+        # Adjust layout and title
+        fig.suptitle(
+            f'All Model Curves - {dataset_name}',
+            fontsize=16,
+            fontweight='bold',
+            y=0.995
+        )
+        plt.tight_layout(rect=(0, 0, 1, 0.99))
 
         # Save plot
-        plots_dir = os.path.join(PATHS["results_dir"], "plots")
+        plots_dir = os.path.join(PATHS['results_dir'], 'plots')
         os.makedirs(plots_dir, exist_ok=True)
-        plot_path = os.path.join(plots_dir, f"all_model_curves_{dataset_name}.png")
+
+        plot_filename = f'all_model_curves_{dataset_name}.png'
+        plot_path = os.path.join(plots_dir, plot_filename)
+
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved: {plot_path}")
+        logger.info('All-model curves plot saved to: %s', plot_path)
+
+        return plot_path
 
     except Exception as fig_error:
-        logger.error(f"Failed to create model curves plot: {str(fig_error)}")
+        logger.error(
+            'Failed to create all-model curves plot: %s',
+            fig_error,
+            exc_info=True
+        )
+        return None
     finally:
-        plt.close()
+        if fig is not None:
+            plt.close(fig)
 
 
-def plot_difference_curves(models_results, differences, dataset_name):
+def plot_difference_curves(res, differences, dataset_name):
     """
-    Plot performance differences relative to baseline with error handling
+    Plot performance differences relative to baseline with error handling.
 
     Parameters
     ----------
-    models_results: Dictionary of all model results
-    differences: Dictionary of difference values
-    dataset_name: Name of the dataset
+    res : dict
+        Dictionary of all model results where keys are model names and values
+        contain 'x', 'y', and 'z' arrays
+    differences : dict
+        Dictionary of difference values for each model
+    dataset_name : str
+        Name of the dataset for labeling
 
+    Returns
+    -------
+    str or None
+        Path to saved plot if successful, None otherwise
     """
-
     if not differences:
         logger.warning("No difference data to plot")
-        return
+        return None
 
+    fig = None
     try:
         num_models = len(differences)
         cols = 2
-        rows = (num_models + 1) // cols
+        rows = (num_models + cols - 1) // cols  # Ceiling division
 
         fig, axs = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-        if rows == 1 and cols == 1:
-            axs = np.array([axs])
-        axs = axs.flatten()
 
-        # Get x_rga length from first model
-        first_result = next(iter(models_results.values()))
-        x_rga = np.linspace(0, 1, len(first_result['y']))
+        # Flatten axes array for consistent indexing
+        if num_models == 1:
+            axs_flat = [axs]
+        elif rows == 1 or cols == 1:
+            axs_flat = list(axs.flat) if isinstance(axs, np.ndarray) else [axs]
+        else:
+            axs_flat = list(axs.flat)
 
+        # Get x_range from first model
+        first_result = next(iter(res.values()))
+        x_range = np.linspace(0, 1, len(first_result['y']))
+
+        # Plot each model's difference
         for idx, (model_name, diff) in enumerate(differences.items()):
+            ax: Axes = axs_flat[idx]
             try:
                 plot_model_curves(
-                    x_rga,
+                    x_range,
                     [diff['x'], diff['y'], diff['z']],
                     model_name="Baseline",
                     prefix="Difference",
                     title=f"{model_name} Difference vs Baseline ({dataset_name})",
-                    ax=axs[idx]
+                    ax=ax
                 )
             except Exception as plot_error:
-                logger.error(f"Failed to plot difference for {model_name}: {str(plot_error)}")
-                axs[idx].text(0.5, 0.5, f"Error plotting {model_name}",
-                              ha='center', va='center', transform=axs[idx].transAxes)
+                logger.error(
+                    'Failed to plot difference for %s: %s',
+                    model_name,
+                    plot_error,
+                    exc_info=True
+                )
+                ax.text(
+                    0.5, 0.5,
+                    f"Error plotting {model_name}",
+                    ha='center',
+                    va='center',
+                    transform=ax.transAxes,
+                    fontsize=12,
+                    color='red'
+                )
 
         # Hide unused subplots
-        for idx in range(num_models, len(axs)):
-            axs[idx].set_visible(False)
+        for idx in range(num_models, len(axs_flat)):
+            unused_ax: Axes = axs_flat[idx]
+            unused_ax.axis('off')
 
-        fig.suptitle(f'Performance Differences vs Baseline - {dataset_name}',
-                     fontsize=14, fontweight='bold')
-        fig.subplots_adjust(top=0.95, hspace=0.4)
-        plt.tight_layout()
+        # Adjust layout and title
+        fig.suptitle(
+            f'Performance Differences vs Baseline - {dataset_name}',
+            fontsize=16,
+            fontweight='bold',
+            y=0.995
+        )
+        plt.tight_layout(rect=(0, 0, 1, 0.99))
 
         # Save plot
         plots_dir = os.path.join(PATHS["results_dir"], "plots")
         os.makedirs(plots_dir, exist_ok=True)
-        plot_path = os.path.join(plots_dir, f"difference_curves_{dataset_name}.png")
+
+        plot_filename = f"difference_curves_{dataset_name}.png"
+        plot_path = os.path.join(plots_dir, plot_filename)
+
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved: {plot_path}")
+        logger.info('Difference curves plot saved to: %s', plot_path)
+
+        return plot_path
 
     except Exception as fig_error:
-        logger.error(f"Failed to create difference curves plot: {str(fig_error)}")
+        logger.error(
+            'Failed to create difference curves plot: %s',
+            fig_error,
+            exc_info=True
+        )
+        return None
     finally:
-        plt.close()
+        if fig is not None:
+            plt.close(fig)
 
 
-def plot_mean_histograms(models_results, dataset_name, mean_type="arithmetic"):
+def plot_mean_histograms(values, dataset_name, mean_type="arithmetic"):
     """
-    Plot mean histograms for all models with error handling
+    Plot mean histograms for all models with error handling.
 
     Parameters
     ----------
-    models_results: Dictionary of all model results
-    dataset_name: Name of the dataset
-    mean_type: "arithmetic", "geometric", or "quadratic"
+    values : dict
+        Dictionary of all model results where keys are model names and values
+        contain 'x', 'y', and 'z' arrays
+    dataset_name : str
+        Name of the dataset for labeling
+    mean_type : str, optional
+        Type of mean to calculate: "arithmetic", "geometric", or "quadratic"
+        Default is "arithmetic"
 
+    Returns
+    -------
+    str or None
+        Path to saved plot if successful, None otherwise
     """
-
-    if not models_results:
+    if not values:
         logger.warning("No model results for histograms")
-        return
+        return None
 
+    fig = None
     try:
-        num_models = len(models_results)
+        num_models = len(values)
         cols = 2
-        rows = (num_models + 1) // cols
+        rows = (num_models + cols - 1) // cols  # Ceiling division
 
         fig, axs = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-        if rows == 1 and cols == 1:
-            axs = np.array([axs])
-        axs = axs.flatten()
 
-        for idx, (model_name, result) in enumerate(models_results.items()):
+        # Flatten axes array for consistent indexing
+        if num_models == 1:
+            axs_flat = [axs]
+        elif rows == 1 or cols == 1:
+            axs_flat = list(axs.flat) if isinstance(axs, np.ndarray) else [axs]
+        else:
+            axs_flat = list(axs.flat)
+
+        for idx, (model_name, result) in enumerate(values.items()):
+            ax: Axes = axs_flat[idx]
             try:
                 # Create meshgrid
                 x_array = np.array(result['x'])
@@ -393,9 +497,16 @@ def plot_mean_histograms(models_results, dataset_name, mean_type="arithmetic"):
 
                 # Validate arrays are not empty
                 if x_array.size == 0 or y_array.size == 0 or z_array.size == 0:
-                    logger.warning(f"Empty arrays for {model_name}, skipping histogram")
-                    axs[idx].text(0.5, 0.5, f"No data for {model_name}",
-                                  ha='center', va='center', transform=axs[idx].transAxes)
+                    logger.warning('Empty arrays for %s, skipping histogram', model_name)
+                    ax.text(
+                        0.5, 0.5,
+                        f"No data for {model_name}",
+                        ha='center',
+                        va='center',
+                        transform=ax.transAxes,
+                        fontsize=12,
+                        color='orange'
+                    )
                     continue
 
                 x_grid, y_grid, z_grid = np.meshgrid(x_array, y_array, z_array, indexing='ij')
@@ -405,62 +516,105 @@ def plot_mean_histograms(models_results, dataset_name, mean_type="arithmetic"):
                     model_name=model_name,
                     bar_label=model_name,
                     mean_type=mean_type,
-                    ax=axs[idx]
+                    ax=ax
                 )
             except Exception as plot_error:
-                logger.error(f"Failed to plot histogram for {model_name}: {str(plot_error)}")
-                axs[idx].text(0.5, 0.5, f"Error plotting {model_name}",
-                              ha='center', va='center', transform=axs[idx].transAxes)
+                logger.error(
+                    'Failed to plot histogram for %s: %s',
+                    model_name,
+                    plot_error,
+                    exc_info=True
+                )
+                ax.text(
+                    0.5, 0.5,
+                    f"Error plotting {model_name}",
+                    ha='center',
+                    va='center',
+                    transform=ax.transAxes,
+                    fontsize=12,
+                    color='red'
+                )
 
         # Hide unused subplots
-        for idx in range(num_models, len(axs)):
-            axs[idx].set_visible(False)
+        for idx in range(num_models, len(axs_flat)):
+            unused_ax: Axes = axs_flat[idx]
+            unused_ax.axis('off')
 
-        fig.suptitle(f'{mean_type.capitalize()} Mean Histograms - {dataset_name}',
-                     fontsize=14, fontweight='bold')
-        fig.subplots_adjust(top=0.95, hspace=0.4)
-        plt.tight_layout()
+        # Adjust layout and title
+        fig.suptitle(
+            f'{mean_type.capitalize()} Mean Histograms - {dataset_name}',
+            fontsize=16,
+            fontweight='bold',
+            y=0.995
+        )
+        plt.tight_layout(rect=(0, 0, 1, 0.99))
 
         # Save plots
         plots_dir = os.path.join(PATHS["results_dir"], "plots")
         os.makedirs(plots_dir, exist_ok=True)
-        plot_path = os.path.join(plots_dir, f"mean_histograms_{mean_type}_{dataset_name}.png")
+
+        plot_filename = f"mean_histograms_{mean_type}_{dataset_name}.png"
+        plot_path = os.path.join(plots_dir, plot_filename)
+
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved: {plot_path}")
+        logger.info('Mean histograms plot saved to: %s', plot_path)
+
+        return plot_path
 
     except Exception as fig_error:
-        logger.error(f"Failed to create {mean_type} histograms: {str(fig_error)}")
+        logger.error(
+            'Failed to create %s histograms: %s',
+            mean_type,
+            fig_error,
+            exc_info=True
+        )
+        return None
     finally:
-        plt.close()
+        if fig is not None:
+            plt.close(fig)
 
 
 def plot_diff_mean_histograms(differences, dataset_name, mean_type="arithmetic"):
     """
-    Plot mean histograms for performance differences vs baseline
+    Plot mean histograms for performance differences vs baseline.
 
     Parameters
     ----------
-    differences: Dictionary of difference values
-    dataset_name: Name of the dataset
-    mean_type: "arithmetic", "geometric", or "quadratic"
+    differences : dict
+        Dictionary of difference values for each model
+    dataset_name : str
+        Name of the dataset for labeling
+    mean_type : str, optional
+        Type of mean to calculate: "arithmetic", "geometric", or "quadratic"
+        Default is "arithmetic"
 
+    Returns
+    -------
+    str or None
+        Path to saved plot if successful, None otherwise
     """
-
     if not differences:
-        logger.info(f"No difference data available, skipping {mean_type} difference histograms")
-        return
+        logger.info('No difference data available, skipping %s difference histograms', mean_type)
+        return None
 
+    fig = None
     try:
         num_models = len(differences)
         cols = 2
-        rows = (num_models + 1) // cols
+        rows = (num_models + cols - 1) // cols  # Ceiling division
 
         fig, axs = plt.subplots(rows, cols, figsize=(15, 5 * rows))
-        if rows == 1 and cols == 1:
-            axs = np.array([axs])
-        axs = axs.flatten()
+
+        # Flatten axes array for consistent indexing
+        if num_models == 1:
+            axs_flat = [axs]
+        elif rows == 1 or cols == 1:
+            axs_flat = list(axs.flat) if isinstance(axs, np.ndarray) else [axs]
+        else:
+            axs_flat = list(axs.flat)
 
         for idx, (model_name, diff) in enumerate(differences.items()):
+            ax: Axes = axs_flat[idx]
             try:
                 # Create meshgrid
                 x_array = np.array(diff['x'])
@@ -468,9 +622,16 @@ def plot_diff_mean_histograms(differences, dataset_name, mean_type="arithmetic")
                 z_array = np.array(diff['z'])
 
                 if x_array.size == 0 or y_array.size == 0 or z_array.size == 0:
-                    logger.warning(f"Empty difference arrays for {model_name}")
-                    axs[idx].text(0.5, 0.5, f"No data for {model_name}",
-                                  ha='center', va='center', transform=axs[idx].transAxes)
+                    logger.warning('Empty difference arrays for %s', model_name)
+                    ax.text(
+                        0.5, 0.5,
+                        f"No data for {model_name}",
+                        ha='center',
+                        va='center',
+                        transform=ax.transAxes,
+                        fontsize=12,
+                        color='orange'
+                    )
                     continue
 
                 x_grid, y_grid, z_grid = np.meshgrid(x_array, y_array, z_array, indexing='ij')
@@ -480,42 +641,71 @@ def plot_diff_mean_histograms(differences, dataset_name, mean_type="arithmetic")
                     model_name=model_name,
                     bar_label=model_name,
                     mean_type=mean_type,
-                    ax=axs[idx]
+                    ax=ax
                 )
             except Exception as plot_error:
-                logger.error(f"Failed to plot difference histogram for {model_name}: {str(plot_error)}")
-                axs[idx].text(0.5, 0.5, f"Error plotting {model_name}",
-                              ha='center', va='center', transform=axs[idx].transAxes)
+                logger.error(
+                    'Failed to plot difference histogram for %s: %s',
+                    model_name,
+                    plot_error,
+                    exc_info=True
+                )
+                ax.text(
+                    0.5, 0.5,
+                    f"Error plotting {model_name}",
+                    ha='center',
+                    va='center',
+                    transform=ax.transAxes,
+                    fontsize=12,
+                    color='red'
+                )
 
         # Hide unused subplots
-        for idx in range(num_models, len(axs)):
-            axs[idx].set_visible(False)
+        for idx in range(num_models, len(axs_flat)):
+            unused_ax: Axes = axs_flat[idx]
+            unused_ax.axis('off')
 
-        fig.suptitle(f'{mean_type.capitalize()} Mean Differences vs Baseline - {dataset_name}',
-                     fontsize=14, fontweight='bold')
-        fig.subplots_adjust(top=0.95, hspace=0.4)
-        plt.tight_layout()
+        # Adjust layout and title
+        fig.suptitle(
+            f'{mean_type.capitalize()} Mean Differences vs Baseline - {dataset_name}',
+            fontsize=16,
+            fontweight='bold',
+            y=0.995
+        )
+        plt.tight_layout(rect=(0, 0, 1, 0.99))
 
         # Save plots
         plots_dir = os.path.join(PATHS["results_dir"], "plots")
         os.makedirs(plots_dir, exist_ok=True)
-        plot_path = os.path.join(plots_dir, f"differences_mean_histograms_{mean_type}_{dataset_name}.png")
+
+        plot_filename = f"differences_mean_histograms_{mean_type}_{dataset_name}.png"
+        plot_path = os.path.join(plots_dir, plot_filename)
+
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        logger.info(f"Plot saved: {plot_path}")
+        logger.info('Difference histograms plot saved to: %s', plot_path)
+
+        return plot_path
 
     except Exception as fig_error:
-        logger.error(f"Failed to create {mean_type} difference histograms: {str(fig_error)}")
+        logger.error(
+            'Failed to create %s difference histograms: %s',
+            mean_type,
+            fig_error,
+            exc_info=True
+        )
+        return None
     finally:
-        plt.close()
+        if fig is not None:
+            plt.close(fig)
 
 
-def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: dict, weights=None):
+def calculate_topsis_ranking(val, ideal_values: dict, worst_values: dict, weights=None):
     """
     Calculate TOPSIS ranking for models with error handling
 
     Parameters
     ----------
-    models_results: Dictionary of all model results
+    val: Dictionary of all model results
     ideal_values: Dict with 'x', 'y', 'z' lists of ideal values
     worst_values: Dict with 'x', 'y', 'z' lists of worst values
     weights: Weights for [x, y, z] metrics (default: equal weights)
@@ -527,27 +717,27 @@ def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: d
     """
 
     if weights is None:
-        weights = np.array([1 / 3, 1 / 3, 1 / 3])
+        weights = np.array([1.0 / 3, 1.0 / 3, 1.0 / 3], dtype=float)
 
     # Validate weights
     if len(weights) != 3:
-        logger.error("Weights must have exactly 3 values")
+        logger.error('Weights must have exactly 3 values')
         return None
 
     if not np.isclose(weights.sum(), 1.0):
-        logger.warning(f"Weights sum to {weights.sum()}, normalizing to 1.0")
+        logger.warning('Weights sum to %.4f; normalizing to 1.0.', weights.sum())
         weights = weights / weights.sum()
 
     # Validate ideal and worst values
     for key in ['x', 'y', 'z']:
         if key not in ideal_values or key not in worst_values:
-            logger.error(f"Missing '{key}' in ideal or worst values")
+            logger.error("Missing key '%s' in ideal or worst values.", key)
             return None
 
     try:
         # Calculate means
         means = {}
-        for model_name, result in models_results.items():
+        for model_name, result in val.items():
             try:
                 means[model_name] = {
                     'mean_x': float(np.mean(result['x'])),
@@ -555,11 +745,11 @@ def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: d
                     'mean_z': float(np.mean(result['z'])),
                 }
             except Exception as mean_error:
-                logger.error(f"Failed to calculate means for {model_name}: {str(mean_error)}")
+                logger.error('Failed to compute means for %s: %s', model_name, mean_error)
                 continue
 
         if not means:
-            logger.error("No valid means calculated")
+            logger.error('No valid means calculated')
             return None
 
         # Create DataFrame
@@ -572,7 +762,7 @@ def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: d
             if norm > 1e-10:  # Avoid division by very small numbers
                 df[f'r_{col}'] = vec / norm
             else:
-                logger.warning(f"Column {col} has zero or near-zero norm, setting normalized values to 0")
+                logger.warning('Column %s has near-zero norm, setting normalized values to 0.', col)
                 df[f'r_{col}'] = 0
 
         # Apply weights
@@ -581,9 +771,9 @@ def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: d
         df['v_mean_z'] = df['r_mean_z'] * weights[2]
 
         # Normalize ideal and worst values using norms from data
-        norm_x = np.sqrt((df["mean_x"].values ** 2).sum())
-        norm_y = np.sqrt((df["mean_y"].values ** 2).sum())
-        norm_z = np.sqrt((df["mean_z"].values ** 2).sum())
+        norm_x = np.sqrt((df['mean_x'].values ** 2).sum())
+        norm_y = np.sqrt((df['mean_y'].values ** 2).sum())
+        norm_z = np.sqrt((df['mean_z'].values ** 2).sum())
 
         x_plus = np.mean(ideal_values['x']) / norm_x if norm_x > 1e-10 else 0
         x_minus = np.mean(worst_values['x']) / norm_x if norm_x > 1e-10 else 0
@@ -631,187 +821,255 @@ def calculate_topsis_ranking(models_results, ideal_values: dict, worst_values: d
         return df.sort_values('C', ascending=False)
 
     except Exception as topsis_error:
-        logger.error(f"TOPSIS calculation failed: {str(topsis_error)}")
+        logger.error('TOPSIS calculation failed: %s', topsis_error)
         return None
 
 
-def run_safeai_compliance_score():
+def run_safeai_compliance_score(raw_vectors=None):
     """
-    Main pipeline for SafeAI Compliance Score with comprehensive error handling
+    Main pipeline for SafeAI Compliance Score visualization and ranking.
+
+    Parameters
+    ----------
+    raw_vectors : dict, optional
+        If provided, bypass file loading and use raw vectors:
+        {
+          "model_name": (x_list, y_list, z_list),
+          ...
+        }
 
     Returns
     -------
-    Tuple of (models_results dict, ranking DataFrame) or (None, None) if fails
+    (all_models_results, ranking_df)
+        all_models_results : dict or None
+        ranking_df     : pd.DataFrame or None
     """
-    logger.info("\n" + "=" * 60)
-    logger.info("SafeAI METRICS VISUALIZATION PIPELINE")
-    logger.info("=" * 60)
-    logger.info(f"Dataset: {DATASET_CONFIG['dataset_name']}")
-    logger.info(f"Models: {MODELS_TO_TRAIN}")
-    logger.info("=" * 60)
+    logger.info("SAFE-AI Compliance Score Pipeline")
 
-    # Validate config
-    try:
-        if not isinstance(TOPSIS_IDEAL_VALUES, dict) or not isinstance(TOPSIS_WORST_VALUES, dict):
-            logger.error("TOPSIS_IDEAL_VALUES and TOPSIS_WORST_VALUES must be dictionaries")
+
+    # Raw vectors
+    if raw_vectors is not None:
+        logger.info('Running in Raw Vector Mode (skipping JSON loads)')
+
+        all_models_results = {}
+
+        for model_name, triple in raw_vectors.items():
+            if len(triple) != 3:
+                raise ValueError(f"Model '{model_name}' must provide (x,y,z) vectors")
+
+            x, y, z = triple
+            if not (len(x) == len(y) == len(z)):
+                raise ValueError(f"Model '{model_name}': x,y,z must have same length")
+
+            all_models_results[model_name] = {
+                'x': x,
+                'y': y,
+                'z': z,
+                'data': {'x_final': x, 'y_final': y, 'z_final': z}
+            }
+
+        logger.info('Loaded %d model(s) from raw vectors.', len(all_models_results))
+
+    # Standard mode
+    else:
+        logger.info('Running in Normal Mode (loading JSON results)')
+
+        try:
+            all_models_results = load_all_model_results(
+                MODELS_TO_TRAIN,
+                DATASET_CONFIG['dataset_name']
+            )
+        except Exception as load_error:
+            logger.error('Failed to load SafeAI results: %s', load_error)
             return None, None
-        for key in ['x', 'y', 'z']:
-            if key not in TOPSIS_IDEAL_VALUES:
-                logger.error(f"TOPSIS_IDEAL_VALUES missing key: {key}")
-                return None, None
-            if key not in TOPSIS_WORST_VALUES:
-                logger.error(f"TOPSIS_WORST_VALUES missing key: {key}")
-                return None, None
-    except NameError as config_error:
-        logger.error(f"TOPSIS configuration not found in config: {str(config_error)}")
-        return None, None
 
-    # Load all model results
-    logger.info("\nLoading SafeAI results...")
-    try:
-        models_results = load_all_model_results(MODELS_TO_TRAIN, DATASET_CONFIG['dataset_name'])
-    except Exception as load_error:
-        logger.error(f"Failed to load model results: {str(load_error)}")
-        return None, None
+        if not all_models_results:
+            logger.error('No SafeAI results found. Run evaluation first')
+            return None, None
 
-    if not models_results:
-        logger.error("No SafeAI results found! Ensure models have been evaluated first.")
-        logger.error("Run evaluation.py before running SafeAI compliance scoring.")
-        return None, None
-
-    logger.info(f"✓ Loaded {len(models_results)} model(s) with valid SafeAI data")
+        logger.info('Loaded SafeAI results for %d model(s)', len(all_models_results))
 
     # Plot all curves
-    logger.info("\nPlotting all model curves...")
+    logger.info('Plotting all model curves...')
     try:
-        plot_all_model_curves(models_results, DATASET_CONFIG['dataset_name'])
-        logger.info("✓ Model curves plotted successfully")
+        plot_all_model_curves(all_models_results, DATASET_CONFIG['dataset_name'])
+        logger.info('Model curves plotted successfully')
     except Exception as curve_error:
-        logger.error(f"✗ Failed to plot model curves: {str(curve_error)}")
+        logger.error('Failed to plot all model curves: %s', curve_error)
 
     # Calculate and plot differences
-    logger.info("\nCalculating performance differences...")
+    logger.info('Calculating performance differences...')
     differences = {}
     try:
-        differences = calculate_differences(models_results, baseline_model='random')
+        differences = calculate_differences(all_models_results, baseline_model='random')
 
         if differences:
-            logger.info(f"✓ Calculated differences for {len(differences)} model(s)")
-            logger.info("Plotting difference curves...")
+            logger.info('Differences calculated for %d model(s).', len(differences))
+            logger.info('Plotting difference curves...')
             try:
-                plot_difference_curves(models_results, differences, DATASET_CONFIG['dataset_name'])
-                logger.info("✓ Difference curves plotted successfully")
+                plot_difference_curves(all_models_results, differences, DATASET_CONFIG['dataset_name'])
+                logger.info('Difference curves plotted successfully')
             except Exception as diff_plot_error:
-                logger.error(f"✗ Failed to plot difference curves: {str(diff_plot_error)}")
+                logger.error('Failed to plot difference curves: %s', diff_plot_error)
         else:
-            logger.warning("⚠ No differences calculated (baseline model 'random' may be missing)")
+            logger.warning("No differences calculated (baseline model 'random' may be missing)")
 
     except Exception as diff_error:
-        logger.error(f"✗ Failed to calculate differences: {str(diff_error)}")
+        logger.error('Failed to calculate differences: %s', diff_error)
 
     # Plot histograms for each mean type
     mean_types = ['arithmetic', 'geometric', 'quadratic']
     histogram_success_count = 0
 
     for mean_type in mean_types:
-        logger.info(f"\nProcessing {mean_type} mean histograms...")
+        logger.info('Processing %s mean histograms...', mean_type)
 
         # Regular histograms
         try:
-            plot_mean_histograms(models_results, DATASET_CONFIG['dataset_name'], mean_type)
+            plot_mean_histograms(all_models_results, DATASET_CONFIG['dataset_name'], mean_type)
             histogram_success_count += 1
-            logger.info(f"✓ {mean_type.capitalize()} histograms plotted")
+            logger.info('%s histograms plotted', mean_type.capitalize())
         except Exception as hist_error:
-            logger.error(f"✗ Failed to plot {mean_type} histograms: {str(hist_error)}")
+            logger.error('Failed to plot %s histograms: %s', mean_type, hist_error)
 
         # Difference histograms
         if differences:
             try:
                 plot_diff_mean_histograms(differences, DATASET_CONFIG['dataset_name'], mean_type)
-                logger.info(f"✓ {mean_type.capitalize()} difference histograms plotted")
+                logger.info('%s difference histograms plotted.', mean_type.capitalize())
             except Exception as diff_hist_error:
-                logger.error(f"✗ Failed to plot {mean_type} difference histograms: {str(diff_hist_error)}")
+                logger.error('Failed to plot %s difference histograms: %s', mean_type, diff_hist_error)
 
-    logger.info(f"\nHistogram summary: {histogram_success_count}/{len(mean_types)} types completed successfully")
+    logger.info(
+        'Histogram summary: %d/%d mean types completed successfully',
+        histogram_success_count,
+        len(mean_types),
+    )
 
     # TOPSIS Ranking
-    logger.info("\n" + "=" * 60)
-    logger.info("TOPSIS RANKING")
-    logger.info("=" * 60)
+    logger.info('TOPSIS Ranking')
 
     ranking_df = None
     try:
         ranking_df = calculate_topsis_ranking(
-            models_results,
+            all_models_results,
             ideal_values=TOPSIS_IDEAL_VALUES,
             worst_values=TOPSIS_WORST_VALUES
         )
 
         if ranking_df is not None and not ranking_df.empty:
-            logger.info("\n✓ TOPSIS Ranking Results:")
-            print("\n", ranking_df[['mean_x', 'mean_y', 'mean_z', 'C', 'Rank']])
+            logger.info('TOPSIS Ranking Results:')
+            print('\nTOPSIS Ranking Results:')
+            print(ranking_df[['mean_x', 'mean_y', 'mean_z', 'C', 'Rank']])
 
             # Save ranking
             try:
-                os.makedirs(PATHS["results_dir"], exist_ok=True)
+                os.makedirs(PATHS['results_dir'], exist_ok=True)
                 ranking_path = os.path.join(
-                    PATHS["results_dir"],
-                    f"safeai_compliance_ranking_{DATASET_CONFIG['dataset_name']}.csv"
+                    PATHS['results_dir'],
+                    f'safeai_compliance_ranking_{DATASET_CONFIG['dataset_name']}.csv'
                 )
                 ranking_df.to_csv(ranking_path)
-                logger.info(f"\n✓ Ranking saved: {ranking_path}")
+                logger.info('Ranking saved to: %s', ranking_path)
             except Exception as save_error:
-                logger.error(f"✗ Failed to save ranking: {str(save_error)}")
+                logger.error('Failed to save ranking CSV: %s', save_error)
         else:
-            logger.error("✗ TOPSIS ranking calculation returned None or empty DataFrame")
+            logger.error('TOPSIS ranking returned None or empty DataFrame.')
 
     except Exception as topsis_error:
-        logger.error(f"✗ TOPSIS ranking failed: {str(topsis_error)}")
-        import traceback
-        logger.debug(traceback.format_exc())
+        logger.error('TOPSIS ranking failed: %s', topsis_error)
 
     # Final summary
-    logger.info("\n" + "=" * 60)
-    logger.info("PIPELINE COMPLETE")
-    logger.info("=" * 60)
+    logger.info('SAFE-AI Compliance Pipeline Complete')
 
     # Summary statistics
-    logger.info(f"\nSummary:")
-    logger.info(f"  • Models processed: {len(models_results)}")
-    logger.info(f"  • Differences calculated: {len(differences)}")
-    logger.info(f"  • Histogram types completed: {histogram_success_count}/{len(mean_types)}")
-    logger.info(f"  • TOPSIS ranking: {'✓ Success' if ranking_df is not None else '✗ Failed'}")
-    logger.info(f"\n  Results directory: {PATHS['results_dir']}")
+    logger.info('Summary:')
+    logger.info('  • Models processed: %d', len(all_models_results))
+    logger.info('  • Differences calculated: %d', len(differences))
+    logger.info(
+        '  • Histogram types succeeded: %d/%d',
+        histogram_success_count,
+        len(mean_types),
+    )
+    logger.info('  • TOPSIS ranking: %s', 'Success' if ranking_df is not None else 'Failed')
+    logger.info('Results directory: %s', PATHS['results_dir'])
 
-    # Check if we have minimum viable results
     if ranking_df is None:
-        logger.warning("\n⚠ Pipeline completed with issues - TOPSIS ranking unavailable")
+        logger.warning('Pipeline completed with issues – TOPSIS ranking unavailable.')
     else:
-        logger.info("\n✓ Pipeline completed successfully!")
+        logger.info('Pipeline completed successfully.')
 
-    return models_results, ranking_df
+    return all_models_results, ranking_df
 
 
-if __name__ == "__main__":
-    try:
-        models_results, ranking = run_safeai_compliance_score()
-
-        if models_results is None:
-            logger.error("\n✗ Pipeline failed - no model results loaded")
-            exit(1)
-        elif ranking is None:
-            logger.warning("\n⚠ Pipeline completed partially - rankings unavailable")
-            exit(0)
-        else:
-            logger.info("\n✓ All operations completed successfully!")
-            exit(0)
-
-    except KeyboardInterrupt:
-        logger.warning("\n⚠ Pipeline interrupted by user")
-        exit(130)
-    except Exception as pipeline_error:
-        logger.error(f"\n✗ SafeAI compliance pipeline failed: {str(pipeline_error)}")
-        import traceback
-
-        logger.debug(traceback.format_exc())
-        raise
+if __name__ == '__main__':
+    x_vec = [
+        0.6377,
+        0.6352,
+        0.6279,
+        0.6157,
+        0.5987,
+        0.5768,
+        0.5500,
+        0.5183,
+        0.4820,
+        0.4431,
+        0.4023,
+        0.3596,
+        0.3149,
+        0.2683,
+        0.2198,
+        0.1692,
+        0.1168,
+        0.0662,
+        0.0294,
+        0.0074,
+        0.0000
+    ]
+    y_vec = [
+        1.0000,
+        0.6404,
+        0.6413,
+        0.6425,
+        0.6446,
+        0.6447,
+        0.6447,
+        0.6447,
+        0.6436,
+        0.6416,
+        0.6400,
+        0.6362,
+        0.6292,
+        0.6235,
+        0.6200,
+        0.6105,
+        0.6166,
+        0.5941,
+        0.5000,
+        0.5000,
+        0.5000
+    ]
+    z_vec = [
+        1.0000,
+        0.4953,
+        0.5029,
+        0.5072,
+        0.5020,
+        0.5088,
+        0.5047,
+        0.4942,
+        0.5113,
+        0.4888,
+        0.5069,
+        0.5157,
+        0.5066,
+        0.5013,
+        0.4996,
+        0.4938,
+        0.5169,
+        0.5172,
+        0.5001,
+        0.5024,
+        0.5229
+    ]
+    models_results, ranking = run_safeai_compliance_score(raw_vectors={'llm_rulex': (x_vec, y_vec, z_vec)})

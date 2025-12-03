@@ -12,6 +12,8 @@ from sklearn.metrics import (
 
 from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, PATHS, MODELS_REQUIRING_SCALING
 from safeai_files.check_compliance import safeai_values
+from src.models import get_required_base_models
+from src.train_models import load_base_models_for_ensemble
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -31,25 +33,24 @@ def load_trained_model(model_name, dataset_name):
     Trained model
 
     """
-
-    model_path = os.path.join(PATHS["models_dir"], f"{model_name}_{dataset_name}.joblib")
+    model_path = os.path.join(PATHS['models_dir'], f'{model_name}_{dataset_name}.joblib')
 
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model not found: {model_path}")
+        raise FileNotFoundError(f'Model not found: {model_path}')
 
-    logger.info(f"Loading model: {model_path}")
+    logger.info('Loading model from: %s', model_path)
 
     try:
         model = joblib.load(model_path)
         return model
     except Exception as load_error:
-        logger.error(f"Failed to load model {model_name}: {str(load_error)}")
+        logger.error('Failed to load model %s: %s', model_name, load_error)
         raise
 
 
 def load_test_data(dataset_name):
     """
-    Load test data splits
+    Load train/test data splits
 
     Parameters
     ----------
@@ -60,28 +61,26 @@ def load_test_data(dataset_name):
     Tuple of (x_train, x_test, y_train, y_test)
 
     """
-
-    logger.info("\nLoading test data...")
+    logger.info('Loading train/test splits...')
 
     try:
-        x_train = pd.read_csv(os.path.join(PATHS["clean_data_dir"], f"x_train_{dataset_name}.csv"))
-        x_test = pd.read_csv(os.path.join(PATHS["clean_data_dir"], f"x_test_{dataset_name}.csv"))
+        x_train = pd.read_csv(os.path.join(PATHS['clean_data_dir'], f'x_train_{dataset_name}.csv'))
+        x_test = pd.read_csv(os.path.join(PATHS['clean_data_dir'], f'x_test_{dataset_name}.csv'))
 
         # Safer way to load single column targets
-        y_train_df = pd.read_csv(os.path.join(PATHS["clean_data_dir"], f"y_train_{dataset_name}.csv"))
-        y_test_df = pd.read_csv(os.path.join(PATHS["clean_data_dir"], f"y_test_{dataset_name}.csv"))
+        y_train_df = pd.read_csv(os.path.join(PATHS['clean_data_dir'], f'y_train_{dataset_name}.csv'))
+        y_test_df = pd.read_csv(os.path.join(PATHS['clean_data_dir'], f'y_test_{dataset_name}.csv'))
 
-        # Handle both single and multi-column cases
-        y_train = y_train_df.iloc[:, 0] if y_train_df.shape[1] > 0 else y_train_df.squeeze()
-        y_test = y_test_df.iloc[:, 0] if y_test_df.shape[1] > 0 else y_test_df.squeeze()
+        y_train = y_train_df.iloc[:, 0]
+        y_test = y_test_df.iloc[:, 0]
 
-        logger.info(f"Train set: x={x_train.shape}, y={y_train.shape}")
-        logger.info(f"Test set: x={x_test.shape}, y={y_test.shape}")
+        logger.info('Train set: %s', x_train.shape)
+        logger.info('Test  set: %s', x_test.shape)
 
         return x_train, x_test, y_train, y_test
 
     except Exception as load_error:
-        logger.error(f"Failed to load test data: {str(load_error)}")
+        logger.error('Failed to load test data: %s', load_error)
         raise
 
 
@@ -100,7 +99,6 @@ def compute_basic_metrics(y_test, y_pred, y_prob):
     Dictionary of metrics
 
     """
-
     metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
         'precision': precision_score(y_test, y_pred),
@@ -137,8 +135,7 @@ def find_best_threshold(y_test, y_prob, thresholds):
     Tuple of (best_threshold, best_f1, roc_data DataFrame)
 
     """
-
-    logger.info("\nFinding optimal threshold...")
+    logger.info('Searching for optimal threshold based on F1 score...')
 
     f1_scores = []
     for threshold in thresholds:
@@ -146,17 +143,14 @@ def find_best_threshold(y_test, y_prob, thresholds):
         f1 = f1_score(y_test, y_pred_threshold)
         f1_scores.append(f1)
 
-    roc_data = pd.DataFrame({
-        'threshold': thresholds,
-        'f1_score': f1_scores
-    })
+    roc_data = pd.DataFrame({'threshold': thresholds, 'f1_score': f1_scores})
 
     # Best F1
     best_idx = np.argmax(f1_scores)
     best_threshold = thresholds[best_idx]
     best_f1 = f1_scores[best_idx]
 
-    logger.info(f"Best F1 Score: {best_f1:.4f} at Threshold: {best_threshold:.4f}")
+    logger.info('Best F1 Score: %.4f at threshold: %.4f', best_f1, best_threshold)
 
     return best_threshold, best_f1, roc_data
 
@@ -174,11 +168,10 @@ def plot_roc_curve(fpr, tpr, roc_auc, model_name, dataset_name):
     dataset_name: Name of the dataset
 
     """
-
-    logger.info("Saving ROC curve...")
+    logger.info('Saving ROC curve...')
 
     # Create plots directory if it doesn't exist
-    plots_dir = os.path.join(PATHS["results_dir"], "plots")
+    plots_dir = os.path.join(PATHS['results_dir'], 'plots')
     os.makedirs(plots_dir, exist_ok=True)
 
     try:
@@ -193,13 +186,13 @@ def plot_roc_curve(fpr, tpr, roc_auc, model_name, dataset_name):
         plt.legend(loc='lower right')
         plt.grid(alpha=0.3)
 
-        plot_path = os.path.join(plots_dir, f"ROC_curve_{model_name}_{dataset_name}.png")
+        plot_path = os.path.join(plots_dir, f'ROC_curve_{model_name}_{dataset_name}.png')
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
 
-        logger.info(f"ROC curve saved: {plot_path}")
+        logger.info('ROC curve saved to: %s', plot_path)
 
     except Exception as plot_error:
-        logger.error(f"Failed to save ROC curve: {str(plot_error)}")
+        logger.error('Failed to save ROC curve for %s: %s', model_name, plot_error)
         raise
     finally:
         plt.close()  # Always close the figure
@@ -223,37 +216,56 @@ def evaluate_model(model, model_name, x_train, x_test, y_test, dataset_name):
     Tuple of (results dict, predictions, probabilities)
 
     """
-
-    logger.info("\n" + "=" * 60)
-    logger.info(f"EVALUATING: {model_name.upper()}")
-    logger.info("=" * 60)
+    logger.info('EVALUATING MODEL: %s', model_name.upper())
 
     # Validate model has required methods
     if not hasattr(model, 'predict'):
-        raise AttributeError(f"Model {model_name} does not have predict method")
+        raise AttributeError(f'Model {model_name} does not have predict() method')
 
     if not hasattr(model, 'predict_proba'):
         raise AttributeError(
-            f"Model {model_name} does not have predict_proba method. "
-            f"This is required for ROC curve and threshold optimization."
+            f'Model {model_name} does not have predict_proba method.'
+            f'This is required for ROC curve and threshold optimization.'
         )
 
     # Make predictions
     try:
-        y_pred = model.predict(x_test)
-        y_prob_full = model.predict_proba(x_test)
+        if model_name.lower() == 'sem':
+            logger.info('Generating meta-features for %s...', model_name.upper())
 
-        # Validate binary classification
-        if y_prob_full.shape[1] != 2:
-            raise ValueError(
-                f"Model returns {y_prob_full.shape[1]} classes, "
-                f"but evaluation expects binary classification"
-            )
+            # Load base models used in training
+            required_bases = get_required_base_models(model_name)
+            base_models = load_base_models_for_ensemble(required_bases, dataset_name)
 
-        y_prob = y_prob_full[:, 1]  # Probability of positive class
+            # Build meta-features for TEST set
+            meta_test = {}
+            for base_name, base_model in base_models.items():
+                if hasattr(base_model, "predict_proba"):
+                    meta_test[f"{base_name}_pred"] = base_model.predict_proba(x_test)[:, 1]
+                else:
+                    meta_test[f"{base_name}_pred"] = base_model.predict(x_test)
+
+            meta_test = pd.DataFrame(meta_test)
+
+            # Predict using only the final estimator
+            y_prob_full = model.final_estimator_.predict_proba(meta_test)
+            y_prob = y_prob_full[:, 1]
+            y_pred = (y_prob >= 0.5).astype(int)
+
+        # For other models
+        else:
+            y_pred = model.predict(x_test)
+            y_prob_full = model.predict_proba(x_test)
+
+            if y_prob_full.shape[1] != 2:
+                raise ValueError(
+                    f'Model {model_name} returned probabilities for '
+                    f'{y_prob_full.shape[1]} classes but binary classification expected.'
+                )
+            y_prob = y_prob_full[:, 1]
 
     except Exception as pred_error:
-        logger.error(f"Prediction failed: {str(pred_error)}")
+        logger.error('Prediction failed for %s: %s', model_name, pred_error)
         raise
 
     # Compute basic metrics and ROC curve
@@ -266,16 +278,15 @@ def evaluate_model(model, model_name, x_train, x_test, y_test, dataset_name):
     y_pred_best = np.where(y_prob >= best_threshold, 1, 0)
     cm_best = confusion_matrix(y_test, y_pred_best)
 
-    logger.info("\nPerformance at Optimal Threshold:")
-    logger.info(f"  Threshold: {best_threshold:.4f}")
-    logger.info(f"  Accuracy:  {accuracy_score(y_test, y_pred_best):.4f}")
-    logger.info(f"  Precision: {precision_score(y_test, y_pred_best):.4f}")
-    logger.info(f"  Recall:    {recall_score(y_test, y_pred_best):.4f}")
-    logger.info(f"  F1 Score:  {best_f1:.4f}")
+    logger.info('Performance at optimal threshold (%.4f):', best_threshold)
+    logger.info('  Accuracy : %.4f', accuracy_score(y_test, y_pred_best))
+    logger.info('  Precision: %.4f', precision_score(y_test, y_pred_best))
+    logger.info('  Recall   : %.4f', recall_score(y_test, y_pred_best))
+    logger.info('  F1 Score : %.4f', best_f1)
 
-    logger.info("\nDetailed Classification Report:")
+    logger.info('Detailed Classification Report (at optimal threshold):')
     print(classification_report(y_test, y_pred_best))  # Keep print for formatted output
-    logger.info("\nConfusion Matrix:")
+    logger.info('\nConfusion Matrix:')
     print(cm_best)  # Keep print for formatted output
 
     # ROC curve
@@ -296,24 +307,22 @@ def evaluate_model(model, model_name, x_train, x_test, y_test, dataset_name):
         }
     }
 
-    # Add SafeAI metrics (optional - don't fail if unavailable)
-    logger.info("\n" + "=" * 60)
-    logger.info("COMPUTING SAFEAI METRICS")
-    logger.info("=" * 60)
+    # Add SafeAI metrics
+    logger.info('Computing SAFE-AI Metrics...')
 
     try:
         compliance_results = safeai_values(
             x_train, x_test, y_test, y_prob, model,
-            f"{model_name}_{dataset_name}",
-            os.path.join(PATHS["results_dir"], "plots")
+            f'{model_name}_{dataset_name}',
+            os.path.join(PATHS['results_dir'], 'plots')
         )
         result['compliance'] = compliance_results
-        logger.info("Compliance metrics computed successfully")
+        logger.info('Compliance metrics computed successfully for %s', model_name)
     except ImportError as import_error:
-        logger.warning(f"SafeAI module not available: {str(import_error)}")
+        logger.warning('SafeAI module not available: %s', import_error)
         result['compliance'] = None
     except Exception as compliance_error:
-        logger.warning(f"SafeAI metrics computation failed: {str(compliance_error)}")
+        logger.warning('SafeAI metrics failed for %s: %s', model_name, compliance_error)
         result['compliance'] = None
 
     return result, y_pred_best, y_prob
@@ -330,22 +339,21 @@ def save_evaluation_results(result, model_name, dataset_name):
     dataset_name: Name of the dataset
 
     """
-
-    os.makedirs(PATHS["results_dir"], exist_ok=True)
+    os.makedirs(PATHS['results_dir'], exist_ok=True)
 
     results_path = os.path.join(
-        PATHS["results_dir"],
-        f"{model_name}_{dataset_name}_evaluation.json"
+        PATHS['results_dir'],
+        f'{model_name}_{dataset_name}_evaluation.json'
     )
 
     try:
         with open(results_path, 'w', encoding='utf-8') as file:
             file.write(json.dumps(result, indent=4))
 
-        logger.info(f"\nEvaluation results saved: {results_path}")
+        logger.info('Evaluation results saved to: %s', results_path)
 
     except Exception as save_error:
-        logger.error(f"Failed to save evaluation results: {str(save_error)}")
+        logger.error('Failed to save evaluation results for %s: %s', model_name, save_error)
         raise
 
 
@@ -353,19 +361,15 @@ def run_evaluation():
     """
     Main evaluation pipeline with comprehensive error handling
     """
-
-    logger.info("\n" + "=" * 60)
-    logger.info("MODEL EVALUATION PIPELINE")
-    logger.info("=" * 60)
-    logger.info(f"Dataset: {DATASET_CONFIG['dataset_name']}")
-    logger.info(f"Models to evaluate: {MODELS_TO_TRAIN}")
-    logger.info("=" * 60)
+    logger.info("Model Evaluation Pipeline")
+    logger.info('Dataset: %s', DATASET_CONFIG['dataset_name'])
+    logger.info('Models to evaluate: %s', MODELS_TO_TRAIN)
 
     # Load test data once
     try:
-        x_train, x_test, y_train, y_test = load_test_data(DATASET_CONFIG["dataset_name"])
+        x_train, x_test, y_train, y_test = load_test_data(DATASET_CONFIG['dataset_name'])
     except Exception as data_error:
-        logger.error(f"Failed to load test data: {str(data_error)}")
+        logger.error('Failed to load test data: %s', data_error)
         raise
 
     # Evaluate each model
@@ -373,18 +377,16 @@ def run_evaluation():
     failed_evaluations = []
 
     for model_name in MODELS_TO_TRAIN:
-        logger.info("\n" + "=" * 60)
-        logger.info(f"Processing model: {model_name}")
-        logger.info("=" * 60)
+        logger.info('Processing model: %s', model_name)
 
         try:
             # Load trained model
-            model = load_trained_model(model_name, DATASET_CONFIG["dataset_name"])
+            model = load_trained_model(model_name, DATASET_CONFIG['dataset_name'])
 
-            # ADD THIS: Apply scaling if model requires it
+            # Apply scaling if model requires it
             if model_name in MODELS_REQUIRING_SCALING:
-                logger.info(f"Loading scaler for {model_name}...")
-                scaler_path = os.path.join(PATHS["models_dir"], f"scaler_{DATASET_CONFIG['dataset_name']}.joblib")
+                logger.info('Model %s requires scaling. Loading scaler...', model_name)
+                scaler_path = os.path.join(PATHS['models_dir'], f'scaler_{DATASET_CONFIG['dataset_name']}.joblib')
                 scaler = joblib.load(scaler_path)
 
                 x_train_scaled = pd.DataFrame(
@@ -397,82 +399,77 @@ def run_evaluation():
                     columns=x_test.columns,
                     index=x_test.index
                 )
-                logger.info(f"Applied scaling to test data for {model_name}")
+                logger.info('Scaling applied to train/test data for %s', model_name)
 
                 # Use scaled data for evaluation
                 result, y_pred_best, y_prob = evaluate_model(
                     model, model_name, x_train_scaled, x_test_scaled, y_test,
-                    DATASET_CONFIG["dataset_name"]
+                    DATASET_CONFIG['dataset_name']
                 )
             else:
                 # Use unscaled data for evaluation
                 result, y_pred_best, y_prob = evaluate_model(
                     model, model_name, x_train, x_test, y_test,
-                    DATASET_CONFIG["dataset_name"]
+                    DATASET_CONFIG['dataset_name']
                 )
 
             # Save results
-            save_evaluation_results(result, model_name, DATASET_CONFIG["dataset_name"])
+            save_evaluation_results(result, model_name, DATASET_CONFIG['dataset_name'])
 
             all_results[model_name] = result
-            logger.info(f"✓ Successfully evaluated {model_name}")
+            logger.info('Successfully evaluated model: %s', model_name)
 
         except FileNotFoundError as file_error:
-            logger.error(f"✗ {str(file_error)}")
-            failed_evaluations.append((model_name, "Model file not found"))
+            logger.error('%s', file_error)
+            failed_evaluations.append((model_name, 'Model file not found'))
             continue
 
         except AttributeError as attr_error:
-            logger.error(f"✗ Model incompatibility: {str(attr_error)}")
-            failed_evaluations.append((model_name, "Missing required methods"))
+            logger.error('Model incompatibility for %s: %s', model_name, attr_error)
+            failed_evaluations.append((model_name, 'Missing required methods'))
             continue
 
         except Exception as eval_error:
-            logger.error(f"✗ Unexpected error with {model_name}: {str(eval_error)}")
+            logger.error('Unexpected error for %s: %s', model_name, eval_error)
             failed_evaluations.append((model_name, str(eval_error)))
             continue
 
-    # Print summary
-    logger.info("\n" + "=" * 60)
-    logger.info("EVALUATION SUMMARY")
-    logger.info("=" * 60)
+    # Summary
+    logger.info('Evaluation Summary')
 
     if all_results:
         for model_name, result in all_results.items():
-            logger.info(f"\n{model_name}:")
-            logger.info(f"  ROC AUC: {result['metrics_at_optimal_threshold']['roc_auc']:.4f}")
-            logger.info(f"  F1 Score (optimal threshold): {result['metrics_at_optimal_threshold']['f1_score']:.4f}")
-            logger.info(f"  Optimal Threshold: {result['optimal_threshold']:.4f}")
-    else:
-        logger.warning("No models were successfully evaluated!")
+            metrics_opt = result['metrics_at_optimal_threshold']
+            logger.info(
+                '%s: AUC=%.4f, F1(opt)=%.4f, Thr=%.4f',
+                model_name,
+                metrics_opt['roc_auc'],
+                metrics_opt['f1_score'],
+                result['optimal_threshold'],
+            )
+        else:
+            logger.warning('No models were successfully evaluated.')
 
     if failed_evaluations:
-        logger.warning("\nFailed evaluations:")
-        for failed_model_name, error_msg in failed_evaluations:
-            logger.warning(f"  - {failed_model_name}: {error_msg}")
+        logger.warning('Failed evaluations:')
+        for failed_model_name, error in failed_evaluations:
+            logger.warning('  - %s: %s', failed_model_name, error)
 
-    logger.info("\n" + "=" * 60)
-    logger.info("EVALUATION COMPLETE!")
-    logger.info("=" * 60)
-    logger.info(f"\nEvaluated {len(all_results)} model(s) successfully")
-
-    if failed_evaluations:
-        logger.info(f"Failed to evaluate {len(failed_evaluations)} model(s)")
-
-    logger.info(f"Results saved in: {PATHS['results_dir']}")
+    logger.info('Evaluation results directory: %s', PATHS['results_dir'])
+    logger.info('Evaluation Complete')
 
     return all_results, failed_evaluations
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         results, failed = run_evaluation()
 
         if failed:
-            logger.warning(f"\nEvaluation completed with {len(failed)} failure(s)")
+            logger.warning('Evaluation completed with %d failure(s)', len(failed))
         else:
-            logger.info("\nAll models evaluated successfully!")
+            logger.info('All models evaluated successfully')
 
     except Exception as pipeline_error:
-        logger.error(f"Evaluation pipeline failed: {str(pipeline_error)}")
+        logger.error('Evaluation pipeline failed: %s', pipeline_error)
         raise

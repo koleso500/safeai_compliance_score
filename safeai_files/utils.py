@@ -1,4 +1,3 @@
-from catboost import CatBoostClassifier, CatBoostRegressor
 import io
 import json
 import matplotlib.pyplot as plt
@@ -13,7 +12,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 def manipulate_testdata(xtrain: pd.DataFrame, 
                         xtest: pd.DataFrame, 
-                        model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
+                        model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
                                torch.nn.Module],
                         variable: str):
     """
@@ -25,7 +24,7 @@ def manipulate_testdata(xtrain: pd.DataFrame,
             A dataframe including train data.
     xtest : pd.DataFrame
             A dataframe including test data.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor.
     variable: str 
             Name of variable.
@@ -37,18 +36,7 @@ def manipulate_testdata(xtrain: pd.DataFrame,
     """
     # create xtest_rm
     xtest_rm = xtest.copy()
-    if isinstance(model, (CatBoostClassifier, CatBoostRegressor)):
-        # specific settings for CatBoost models
-        cat_indices = model.get_cat_feature_indices()
-        # replace variable with mode or mean based on its type
-        if xtrain.columns.get_loc(variable) not in cat_indices:
-            mean_value = xtrain[variable].mean()
-            xtest_rm[variable] = mean_value
-        else:
-            mode_value = xtrain[variable].mode()[0]
-            xtest_rm[variable] = mode_value
-        
-    elif isinstance(model, (BaseEstimator, XGBClassifier, XGBRegressor)):
+    if isinstance(model, (BaseEstimator, XGBClassifier, XGBRegressor)):
         # specific settings for sklearn and xgboost models
         if isinstance(xtrain[variable].dtype, pd.CategoricalDtype):
             mode_value = xtrain[variable].mode()[0]
@@ -138,7 +126,7 @@ def check_nan(*dataframes):
 
 
 
-def find_yhat(model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
+def find_yhat(model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
               torch.nn.Module],
               xtest: pd.DataFrame):
     """
@@ -148,7 +136,7 @@ def find_yhat(model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier,
     ----------
     xtest : pd.DataFrame
             A dataframe including test data.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor.
 
     Returns

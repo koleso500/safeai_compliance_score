@@ -1,7 +1,12 @@
+import logging
 import pandas as pd
 import os
 
+from sklearn.model_selection import train_test_split
 from src.config import DATASET_CONFIG, PATHS
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 def load_raw_data(file_path):
@@ -17,10 +22,9 @@ def load_raw_data(file_path):
     pandas DataFrame with raw data
 
     """
-
-    print(f"Loading data from: {file_path}")
+    logger.info(f'Loading raw data from: {file_path}')
     data = pd.read_csv(file_path, low_memory=False)
-    print(f"Original shape: {data.shape}")
+    logger.info(f'Original shape: {data.shape}')
     return data
 
 
@@ -37,8 +41,7 @@ def clean_data(data):
     Cleaned pandas DataFrame
 
     """
-
-    print("\nCleaning data...")
+    logger.info('Cleaning data...')
 
     # Filter rows
     values_to_remove = {
@@ -60,9 +63,13 @@ def clean_data(data):
         if col in data_lending_short.columns:
             data_lending_short = data_lending_short[~data_lending_short[col].isin(values)]
         else:
-            print(f"Warning: Column '{col}' is not found in data")
+            logger.warning("Column '%s' not found when filtering values", col)
 
-    print(f"Rows after filtering: {len(data_lending_short)} (removed {initial_rows - len(data_lending_short)})")
+    logger.info(
+        'Rows after filtering: %d (removed %d)',
+        len(data_lending_short),
+        initial_rows - len(data_lending_short),
+    )
 
     # Remove columns
     columns_to_remove = [
@@ -85,23 +92,28 @@ def clean_data(data):
     columns_to_drop = [col for col in columns_to_remove if col in data_lending_short.columns]
     data_lending_dropped = data_lending_short.drop(columns=columns_to_drop)
 
-    print(f"Columns after dropping: {len(data_lending_dropped.columns)}")
+    logger.info('Columns after dropping: %d', len(data_lending_dropped.columns))
 
     # Missing values
     rows_before_na = len(data_lending_dropped)
     data_na = data_lending_dropped.dropna(axis='index')
-    print(f"Rows after removing NaN: {len(data_na)} "
-          f"(removed {rows_before_na - len(data_na)})")
+
+    logger.info(
+        'Rows after removing NaN: %d (removed %d)',
+        len(data_na),
+        rows_before_na - len(data_na),
+    )
 
     data_clean = data_na.copy()
+
     # Remap action_taken to binary (0 and 1)
     if 'action_taken' in data_na.columns:
         data_clean.loc[:, 'action_taken'] = data_clean['action_taken'].map({1: 0, 3: 1})
-        print("Remapped action_taken: 1→0 (denied), 3→1 (approved)")
+        logger.info("Remapped 'action_taken': 1→0 (denied), 3→1 (approved)")
     else:
-        print("Warning: 'action_taken' column is not found")
+        logger.warning("'action_taken' column not found during remapping")
 
-    print(f"\nFinal shape after cleaning: {data_clean.shape}")
+    logger.info('Final shape after cleaning: %s', data_clean.shape)
     return data_clean
 
 
@@ -120,19 +132,17 @@ def create_subsample(data, target_column, sample_size=None, sample_fraction=0.1,
     Returns
     -------
     Stratified subsample DataFrame
-    """
-    from sklearn.model_selection import train_test_split
 
-    print("\n" + "=" * 60)
-    print("CREATING STRATIFIED SUBSAMPLE")
-    print("=" * 60)
+    """
+    logger.info('Creating Subsample...')
+
+    if target_column not in data.columns:
+        raise ValueError(f"Target column '{target_column}' not found in data.")
 
     # Check class distribution before
-    print(f"\nOriginal data shape: {data.shape}")
-    print(f"Original class distribution:")
-    print(data[target_column].value_counts())
-    print(f"Original class proportions:")
-    print(data[target_column].value_counts(normalize=True))
+    logger.info('Original data shape: %s', data.shape)
+    logger.info('Original class distribution:\n%s', data[target_column].value_counts())
+    logger.info('Original class proportions:\n%s', data[target_column].value_counts(normalize=True))
 
     # Calculate sample size
     if sample_size is None:
@@ -147,13 +157,9 @@ def create_subsample(data, target_column, sample_size=None, sample_fraction=0.1,
     )
 
     # Check class distribution after
-    print(f"\nSample data shape: {sample_data.shape}")
-    print(f"Sample class distribution:")
-    print(sample_data[target_column].value_counts())
-    print(f"Sample class proportions:")
-    print(sample_data[target_column].value_counts(normalize=True))
-
-    print("=" * 60)
+    logger.info('Sample data shape: %s', sample_data.shape)
+    logger.info('Sample class distribution:\n%s', sample_data[target_column].value_counts())
+    logger.info('Sample class proportions:\n%s', sample_data[target_column].value_counts(normalize=True))
 
     return sample_data
 
@@ -172,11 +178,10 @@ def save_clean_data(data, save_path, dataset_name):
     File path
 
     """
-
     os.makedirs(save_path, exist_ok=True)
-    file_path = os.path.join(save_path, f"data_clean_{dataset_name}.csv")
+    file_path = os.path.join(save_path, f'data_clean_{dataset_name}.csv')
     data.to_csv(file_path, index=False)
-    print(f"\nCleaned data saved to: {file_path}")
+    logger.info('Cleaned data saved to: %s', file_path)
     return file_path
 
 
@@ -197,10 +202,7 @@ def preprocess(raw_data_path, save_dir, dataset_name, create_sample=False, sampl
     Path to cleaned data file
 
     """
-
-    print("\n" + "=" * 60)
-    print("DATA PREPROCESSING")
-    print("=" * 60)
+    logger.info('Data Preprocessing...')
 
     # Load raw data
     data = load_raw_data(raw_data_path)
@@ -212,29 +214,29 @@ def preprocess(raw_data_path, save_dir, dataset_name, create_sample=False, sampl
     if create_sample:
         data_clean = create_subsample(
             data_clean,
-            target_column=DATASET_CONFIG["target_column"],
+            target_column=DATASET_CONFIG['target_column'],
             sample_fraction=sample_fraction,
             random_state=42
         )
-        dataset_name = f"{dataset_name}_sample"
+        dataset_name = f'{dataset_name}_sample'
 
     # Save cleaned data
     clean_data_path = save_clean_data(data_clean, save_dir, dataset_name)
 
-    print("=" * 60)
-    print("PREPROCESSING COMPLETE")
-    print("=" * 60)
+    logger.info('Preprocessing Complete')
 
     return clean_data_path
 
 
-if __name__ == "__main__":
-    raw_path = os.path.join(PATHS["raw_data_dir"], DATASET_CONFIG["raw_data_file"])
+if __name__ == '__main__':
+    raw_path = os.path.join(PATHS['raw_data_dir'], DATASET_CONFIG['raw_data_file'])
 
     clean_path = preprocess(
         raw_data_path=raw_path,
-        save_dir=PATHS["clean_data_dir"],
-        dataset_name=DATASET_CONFIG["dataset_name"]
+        save_dir=PATHS['clean_data_dir'],
+        dataset_name=DATASET_CONFIG['dataset_name'],
+        create_sample = DATASET_CONFIG.get('create_sample', False),
+        sample_fraction = DATASET_CONFIG.get('sample_fraction', 0.1)
     )
 
-    print(f"\nCleaned data: {clean_path}")
+    logger.info('Cleaned data available at: %s', clean_path)

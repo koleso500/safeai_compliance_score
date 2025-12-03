@@ -1,4 +1,3 @@
-from catboost import CatBoostClassifier, CatBoostRegressor
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
@@ -59,7 +58,7 @@ def perturb(data: pd.DataFrame,
 
 def compute_rgr_values(xtest: pd.DataFrame, 
                                 yhat: list, 
-                                model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
+                                model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
                                 torch.nn.Module],
                                 variables: list, 
                                 perturbation_percentage= 0.05):
@@ -72,7 +71,7 @@ def compute_rgr_values(xtest: pd.DataFrame,
             A dataframe including test data.
     yhat : list
             A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor. 
     variables: list 
             A list of variables.
@@ -102,7 +101,7 @@ def compute_rgr_values(xtest: pd.DataFrame,
 
 def rgr_single(xtest: pd.DataFrame,
                 yhat: list,
-                model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module],
+                model: Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module],
                 variable: str,
                 perturbation_percentage=0.05):
     """
@@ -114,7 +113,7 @@ def rgr_single(xtest: pd.DataFrame,
             A dataframe including test data.
     yhat : list
             A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor.
     variable : str
             The variable (column) in xtest to be perturbed.
@@ -149,7 +148,7 @@ def rgr_single(xtest: pd.DataFrame,
 
 def rgr_all(xtest: pd.DataFrame,
             yhat: list,
-            model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier,
+            model: Union[XGBClassifier,
             XGBRegressor, BaseEstimator, torch.nn.Module],
             perturbation_percentage = 0.05,
             perturbation_strategy: Literal['percentile_swap', 'gaussian_noise'] = 'percentile_swap',
@@ -165,7 +164,7 @@ def rgr_all(xtest: pd.DataFrame,
         A dataframe including test data.
     yhat : list
         A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor,
+    model : Union[XGBClassifier, XGBRegressor,
                   BaseEstimator, torch.nn.Module]
         A trained model, which could be a classifier or regressor.
     perturbation_percentage : float

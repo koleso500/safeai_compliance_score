@@ -1,4 +1,3 @@
-from catboost import CatBoostClassifier, CatBoostRegressor
 import pandas as pd
 from sklearn.base import BaseEstimator
 import torch
@@ -11,7 +10,7 @@ from safeai_files.core import rga
 def compute_rge_values(xtrain: pd.DataFrame, 
                 xtest: pd.DataFrame,
                 yhat: list,
-                model: Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator,
+                model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
                 torch.nn.Module],
                 variables: list, 
                 group: bool = False):
@@ -26,7 +25,7 @@ def compute_rge_values(xtrain: pd.DataFrame,
             A dataframe including test data.
     yhat : list
             A list of predicted values.
-    model : Union[CatBoostClassifier, CatBoostRegressor, XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
+    model : Union[XGBClassifier, XGBRegressor, BaseEstimator, torch.nn.Module]
             A trained model, which could be a classifier or regressor. 
     variables : list
             A list of variables.
