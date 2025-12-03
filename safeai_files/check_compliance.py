@@ -100,9 +100,9 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
     plt.close()
 
     # Robustness (RGR)
-    thresholds = np.linspace(0, 3, 61)
-    rgr_scores = [rgr_all(x_test, y_prob, model, t, 'gaussian_noise', seed=78925) for t in thresholds]
-    normalized_t = thresholds / 3
+    thresholds = np.arange(0, 0.51, 0.01)
+    rgr_scores = [rgr_all(x_test, y_prob, model, float(t)) for t in thresholds]
+    normalized_t = thresholds / 0.5
     rgr_auc = auc(normalized_t, rgr_scores)
 
     # Plot
@@ -141,8 +141,8 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
 
     # RGR
     num_steps_rgr = len(step_rges)
-    thresholds_rgr = np.linspace(0, 3, num_steps_rgr)
-    z_final = [rgr_all(x_test, y_prob, model, t, 'gaussian_noise', seed=78925) for t in thresholds_rgr]
+    thresholds_rgr = np.linspace(0, 0.5, num_steps_rgr)
+    z_final = [rgr_all(x_test, y_prob, model, t) for t in thresholds_rgr]
 
     return {
         'model_name': model.__class__.__name__,

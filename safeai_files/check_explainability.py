@@ -47,7 +47,7 @@ def compute_rge_values(xtrain: pd.DataFrame,
     if group:
         # Apply manipulate_testdata iteratively for each variable in the group
         for variable in variables:
-            xtest = manipulate_testdata(xtrain, xtest, model, variable)
+            xtest = manipulate_testdata(xtrain, xtest, variable)
         
         # Calculate yhat after manipulating all variables in the group
         yhat_rm = find_yhat(model, xtest)
@@ -60,7 +60,7 @@ def compute_rge_values(xtrain: pd.DataFrame,
         # Calculate RGE for each variable individually
         rge_list = []
         for variable in variables:
-            xtest_rm = manipulate_testdata(xtrain, xtest, model, variable)
+            xtest_rm = manipulate_testdata(xtrain, xtest, variable)
             yhat_rm = find_yhat(model, xtest_rm)
             rge_list.append(1 - (rga(yhat, yhat_rm)))
         
