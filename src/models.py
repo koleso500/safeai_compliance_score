@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier, StackingClassifier, VotingC
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.svm import SVC
-from scipy.special import expit
+from sklearn.decomposition import PCA
 from torch.utils.data import DataLoader, TensorDataset
 from xgboost import XGBClassifier
 from qiskit_machine_learning.algorithms import QSVC
@@ -388,8 +388,10 @@ class QSVCWrapper(BaseEstimator, ClassifierMixin):
         self.max_iter = max_iter
         self.feature_dim = feature_dim
 
+        self.pca = PCA(n_components=feature_dim, random_state=42)
+
         feature_map = PauliFeatureMap(
-            feature_dimension=4,
+            feature_dimension=feature_dim,
             reps=1,
             paulis=['Z', 'ZZ'],
         )
@@ -400,8 +402,7 @@ class QSVCWrapper(BaseEstimator, ClassifierMixin):
             quantum_kernel=quantum_kernel,
             C=c,
             tol=tol,
-            max_iter=max_iter,
-            probability=True,
+            max_iter=max_iter
         )
 
     @staticmethod
@@ -412,19 +413,22 @@ class QSVCWrapper(BaseEstimator, ClassifierMixin):
 
     def fit(self, x, y):
         x_arr = self._to_array(x)
-        self.qsvc_.fit(x_arr, y)
+        x_reduced = self.pca.fit_transform(x_arr)
+        self.qsvc_.fit(x_reduced, y)
         return self
 
     def predict(self, x):
         x_arr = self._to_array(x)
-        return self.qsvc_.predict(x_arr)
+        x_reduced = self.pca.transform(x_arr)
+        return self.qsvc_.predict(x_reduced)
 
     def predict_proba(self, x):
         x_arr = self._to_array(x)
+        x_reduced = self.pca.transform(x_arr)
         try:
-            return self.qsvc_.predict_proba(x_arr)
-        except:
-            scores = self.qsvc_.decision_function(x_arr)
+            return self.qsvc_.predict_proba(x_reduced)
+        except Exception:
+            scores = self.qsvc_.decision_function(x_reduced)
 
             # Min-max scale to [0,1]
             min_s = scores.min()

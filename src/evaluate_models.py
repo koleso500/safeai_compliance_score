@@ -9,6 +9,7 @@ from sklearn.metrics import (
     accuracy_score, auc, classification_report, confusion_matrix,
     f1_score, roc_curve, precision_score, recall_score
 )
+from sklearn.model_selection import train_test_split
 
 from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, PATHS, MODELS_REQUIRING_SCALING
 from safeai_files.check_compliance import safeai_values
@@ -279,10 +280,10 @@ def evaluate_model(model, model_name, x_train, x_test, y_test, dataset_name):
     cm_best = confusion_matrix(y_test, y_pred_best)
 
     logger.info('Performance at optimal threshold (%.4f):', best_threshold)
-    logger.info('  Accuracy : %.4f', accuracy_score(y_test, y_pred_best))
-    logger.info('  Precision: %.4f', precision_score(y_test, y_pred_best))
-    logger.info('  Recall   : %.4f', recall_score(y_test, y_pred_best))
-    logger.info('  F1 Score : %.4f', best_f1)
+    logger.info('Accuracy : %.4f', accuracy_score(y_test, y_pred_best))
+    logger.info('Precision: %.4f', precision_score(y_test, y_pred_best))
+    logger.info('Recall   : %.4f', recall_score(y_test, y_pred_best))
+    logger.info('F1 Score : %.4f', best_f1)
 
     logger.info('Detailed Classification Report (at optimal threshold):')
     print(classification_report(y_test, y_pred_best))  # Keep print for formatted output
@@ -357,10 +358,16 @@ def save_evaluation_results(result, model_name, dataset_name):
         raise
 
 
+QSVC_MAX_EVAL_SAMPLES = 100
+
 def run_evaluation():
     """
     Main evaluation pipeline with comprehensive error handling
+
     """
+    os.makedirs(PATHS['results_dir'], exist_ok=True)
+    os.makedirs(PATHS['models_dir'], exist_ok=True)
+
     logger.info("Model Evaluation Pipeline")
     logger.info('Dataset: %s', DATASET_CONFIG['dataset_name'])
     logger.info('Models to evaluate: %s', MODELS_TO_TRAIN)
@@ -383,6 +390,45 @@ def run_evaluation():
             # Load trained model
             model = load_trained_model(model_name, DATASET_CONFIG['dataset_name'])
 
+            # Downsample train & test only for qsvc
+            if model_name == "qsvc":
+                logger.info('QSVC detected — applying downsampling for evaluation')
+
+                # Reduce test
+                if len(x_test) > QSVC_MAX_EVAL_SAMPLES:
+                    x_test_eval, _, y_test_eval, _ = train_test_split(
+                        x_test, y_test,
+                        train_size=QSVC_MAX_EVAL_SAMPLES,
+                        stratify=y_test,
+                        random_state=42
+                    )
+                    logger.info(
+                        'Reduced QSVC test set from %d → %d',
+                        len(x_test), len(x_test_eval)
+                    )
+                else:
+                    x_test_eval, y_test_eval = x_test, y_test
+
+                # Reduce train (for SAFE-AI robustness)
+                if len(x_train) > QSVC_MAX_EVAL_SAMPLES:
+                    x_train_eval, _, y_train_eval, _ = train_test_split(
+                        x_train, y_train,
+                        train_size=QSVC_MAX_EVAL_SAMPLES,
+                        stratify=y_train,
+                        random_state=42
+                    )
+                    logger.info(
+                        'Reduced QSVC train set from %d → %d',
+                        len(x_train), len(x_train_eval)
+                    )
+                else:
+                    x_train_eval, y_train_eval = x_train, y_train
+
+            else:
+                # All other models: full train/test
+                x_train_eval, y_train_eval = x_train, y_train
+                x_test_eval, y_test_eval = x_test, y_test
+
             # Apply scaling if model requires it
             if model_name in MODELS_REQUIRING_SCALING:
                 logger.info('Model %s requires scaling. Loading scaler...', model_name)
@@ -390,26 +436,34 @@ def run_evaluation():
                 scaler = joblib.load(scaler_path)
 
                 x_train_scaled = pd.DataFrame(
-                    scaler.transform(x_train),
+                    scaler.transform(x_train_eval),
                     columns=x_train.columns,
-                    index=x_train.index
+                    index=x_train_eval.index
                 )
                 x_test_scaled = pd.DataFrame(
-                    scaler.transform(x_test),
+                    scaler.transform(x_test_eval),
                     columns=x_test.columns,
-                    index=x_test.index
+                    index=x_test_eval.index
                 )
-                logger.info('Scaling applied to train/test data for %s', model_name)
+
+                logger.info(
+                    'Scaling applied for %s (train=%d, test=%d)',
+                    model_name, len(x_train_scaled), len(x_test_scaled)
+                )
 
                 # Use scaled data for evaluation
                 result, y_pred_best, y_prob = evaluate_model(
-                    model, model_name, x_train_scaled, x_test_scaled, y_test,
+                    model, model_name,
+                    x_train_scaled, x_test_scaled,
+                    y_test_eval,
                     DATASET_CONFIG['dataset_name']
                 )
             else:
                 # Use unscaled data for evaluation
                 result, y_pred_best, y_prob = evaluate_model(
-                    model, model_name, x_train, x_test, y_test,
+                    model, model_name,
+                    x_train_eval, x_test_eval,
+                    y_test_eval,
                     DATASET_CONFIG['dataset_name']
                 )
 
@@ -447,8 +501,8 @@ def run_evaluation():
                 metrics_opt['f1_score'],
                 result['optimal_threshold'],
             )
-        else:
-            logger.warning('No models were successfully evaluated.')
+    else:
+        logger.warning('No models were successfully evaluated.')
 
     if failed_evaluations:
         logger.warning('Failed evaluations:')

@@ -39,7 +39,7 @@ def compute_rga_parity(xtrain: pd.DataFrame,
     """
     # check if the protected variable is available in data
     if protectedvariable not in xtrain.columns:
-        raise ValueError(f"{protectedvariable} is not in the variables")
+        raise ValueError(f'{protectedvariable} is not in the variables')
     xtrain, xtest, ytest, yhat = convert_to_dataframe(xtrain, xtest, ytest, yhat)
     # check for missing values
     check_nan(xtrain, xtest, ytest, yhat)
@@ -53,6 +53,6 @@ def compute_rga_parity(xtrain: pd.DataFrame,
         yhat_pr = find_yhat(model, xtest_pr)         
         rga_value = rga(ytest_pr, yhat_pr)
         rgas.append(rga_value)            
-    return f"The RGA-based imparity between the protected groups is {max(rgas)-min(rgas)}."
+    return f'The RGA-based imparity between the protected groups is {max(rgas)-min(rgas)}.'
  
 

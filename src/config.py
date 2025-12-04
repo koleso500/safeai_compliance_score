@@ -24,11 +24,11 @@ DATASET_CONFIG = {
 MODELS_TO_TRAIN = [
     'logistic_regression',
     'random_forest',
-    'xgboost',
-    'vem',
-    'sem',
-    'svm',
-    'neural_network',
+    #'xgboost',
+    #'vem',
+    #'sem',
+    #'svm',
+    #'neural_network',
     'qsvc'
 ]
 

@@ -25,26 +25,26 @@ def rga(y: list, yhat: list):
         y, yhat = convert_to_dataframe(y, yhat)
         # check the length
         if y.shape != yhat.shape:
-                raise ValueError("y and yhat should have the same shape.")
+                raise ValueError('y and yhat should have the same shape.')
         df = pd.concat([y, yhat], axis=1)
-        df.columns = ["y", "yhat"]
+        df.columns = ['y', 'yhat']
         # check for missing values
         check_nan(y, yhat)
               
         # Rank yhat values
-        df['ryhat'] = df['yhat'].rank(method="min")
+        df['ryhat'] = df['yhat'].rank(method='min')
 
         # Group by ryhat and calculate mean of y (support)
         support = df.groupby('ryhat')['y'].mean().reset_index(name='support')
 
         # Merge support back to the original dataframe
-        df = pd.merge(df, support, on="ryhat", how="left")
+        df = pd.merge(df, support, on='ryhat', how='left')
 
         # Create the rord column by directly assigning 'support' where ryhat matches
         df['rord'] = df['support']
         
         # Sort df by yhat to get correct ordering for ystar
-        df = df.sort_values(by="yhat").reset_index(drop=True)
+        df = df.sort_values(by='yhat').reset_index(drop=True)
 
         # Get ystar in the same order as rord in the sorted dataframe
         ystar = df['rord'].values
@@ -92,9 +92,9 @@ def partial_rga_with_curves(y: list, yhat: list, lower=0.0, upper=1.0, plot=True
     y, yhat = convert_to_dataframe(y, yhat)
     # check the length
     if y.shape != yhat.shape:
-        raise ValueError("y and yhat should have the same shape.")
+        raise ValueError('y and yhat should have the same shape.')
     df = pd.concat([y, yhat], axis=1)
-    df.columns = ["y", "yhat"]
+    df.columns = ['y', 'yhat']
     # check for missing values
     check_nan(y, yhat)
 
@@ -105,13 +105,13 @@ def partial_rga_with_curves(y: list, yhat: list, lower=0.0, upper=1.0, plot=True
     support = df.groupby('ryhat')['y'].mean().reset_index(name='support')
 
     # Merge support back to the original dataframe
-    df = pd.merge(df, support, on="ryhat", how="left")
+    df = pd.merge(df, support, on='ryhat', how='left')
 
     # Create the rord column by directly assigning 'support' where ryhat matches
     df['rord'] = df['support']
 
     # Sort df by yhat to get correct ordering for ystar
-    df = df.sort_values(by="yhat").reset_index(drop=True)
+    df = df.sort_values(by='yhat').reset_index(drop=True)
 
     # Get ystar in the same order as rord in the sorted dataframe
     ystar = df['rord'].values
@@ -149,16 +149,16 @@ def partial_rga_with_curves(y: list, yhat: list, lower=0.0, upper=1.0, plot=True
     if plot:
         # Plot of curves
         plt.figure(figsize=(8, 6))
-        plt.plot(x_lorenz, lorenz_y, label="Lorenz", color="yellow")
-        plt.plot(x_dual, dual_y, label="Dual Lorenz", color="green")
-        plt.plot(x_concord, concord_y, label="Concordance (C)", color="red")
+        plt.plot(x_lorenz, lorenz_y, label='Lorenz', color='yellow')
+        plt.plot(x_dual, dual_y, label='Dual Lorenz', color='green')
+        plt.plot(x_concord, concord_y, label='Concordance (C)', color='red')
         plt.plot([0, 1], [0, 1], '--', color='gray', label='45-degree line')
-        plt.fill_between(x_slice, concord_y[mask], dual_y[mask], color="gray", alpha=0.3)
-        plt.xlabel("Cumulative proportion p")
-        plt.ylabel("Cumulative proportion f(p)")
-        plt.title(f"Lorenz, Dual Lorenz, and Concordance Curves\nSegment [{lower:.2f}–{upper:.2f}]: "
-                  f"Partial RGA = {partial_rga_contribution:.3f}, "
-                  f"Local RGA = {rga_local:.3f}")
+        plt.fill_between(x_slice, concord_y[mask], dual_y[mask], color='gray', alpha=0.3)
+        plt.xlabel('Cumulative proportion p')
+        plt.ylabel('Cumulative proportion f(p)')
+        plt.title(f'Lorenz, Dual Lorenz, and Concordance Curves\nSegment [{lower:.2f}–{upper:.2f}]:'
+                  f'Partial RGA = {partial_rga_contribution:.3f},'
+                  f'Local RGA = {rga_local:.3f}')
         plt.legend()
         plt.grid(True)
         plt.tight_layout()

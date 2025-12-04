@@ -31,7 +31,7 @@ def perturb(data: pd.DataFrame,
             The perturbed data.
     """ 
     if perturbation_percentage > 0.5 or perturbation_percentage < 0:
-        raise ValueError("The perturbation percentage should be between 0 and 0.5.")
+        raise ValueError('The perturbation percentage should be between 0 and 0.5.')
         
     data = data.reset_index(drop=True)
     perturbed_variable = data.loc[:,variable]
@@ -95,7 +95,7 @@ def compute_rgr_values(xtest: pd.DataFrame,
         xtest_pert = perturb(xtest, i, perturbation_percentage)
         yhat_pert = find_yhat(model, xtest_pert)
         rgr_list.append(rga(yhat, yhat_pert))
-    rgr_df = pd.DataFrame(rgr_list, index= list(variables), columns=["RGR"]).sort_values(by="RGR", ascending=False)
+    rgr_df = pd.DataFrame(rgr_list, index= list(variables), columns=['RGR']).sort_values(by='RGR', ascending=False)
     return rgr_df
 
 
@@ -239,7 +239,7 @@ def rgr_all(xtest: pd.DataFrame,
                                   index=xtest.index)
 
     else:
-        raise ValueError(f"Unknown perturbation strategy: {perturbation_strategy}. "
+        raise ValueError(f'Unknown perturbation strategy: {perturbation_strategy}.'
                          f"Choose from: 'percentile_swap', 'gaussian_noise'")
 
     # Get perturbed predictions

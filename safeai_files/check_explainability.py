@@ -54,7 +54,7 @@ def compute_rge_values(xtrain: pd.DataFrame,
         
         # Calculate a single RGE for the entire group except these variables
         rge = rga(yhat, yhat_rm)
-        return pd.DataFrame([rge], index=[str(variables)], columns=["RGE"])
+        return pd.DataFrame([rge], index=[str(variables)], columns=['RGE'])
 
     else:
         # Calculate RGE for each variable individually
@@ -64,5 +64,5 @@ def compute_rge_values(xtrain: pd.DataFrame,
             yhat_rm = find_yhat(model, xtest_rm)
             rge_list.append(1 - (rga(yhat, yhat_rm)))
         
-        return pd.DataFrame(rge_list, index=variables, columns=["RGE"]).sort_values(by="RGE", ascending=False)
+        return pd.DataFrame(rge_list, index=variables, columns=['RGE']).sort_values(by='RGE', ascending=False)
 

@@ -13,7 +13,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
 from joblib import Parallel, delayed
 from sklearn.linear_model import LogisticRegression
-from sklearn.decomposition import PCA
 
 from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, TRAINING_CONFIG, PATHS, MODELS_REQUIRING_SCALING
 from src.models import MODEL_PARAM_FUNCTIONS, create_model, is_ensemble_model, get_required_base_models
@@ -498,6 +497,9 @@ def run_training(use_custom_params=None):
         If dict → fixed parameters
         If list → grid search over list (maximize F1 on test set)
     """
+    os.makedirs(PATHS['results_dir'], exist_ok=True)
+    os.makedirs(PATHS['models_dir'], exist_ok=True)
+
     log_path = setup_optuna_file_logger()
 
     ds_name = DATASET_CONFIG['dataset_name']
@@ -568,29 +570,23 @@ def run_training(use_custom_params=None):
                 logger.info('Applying QSVC-specific preprocessing...')
 
                 # Reduce dataset size for QSVC
-                if len(x_train_model) > 400:
+                if len(x_train_model) > 100:
                     x_train_model, _, y_train_model, _ = train_test_split(
                         x_train_model, y_train_model,
-                        train_size=400,
+                        train_size=100,
                         stratify=y_train_model,
                         random_state=42
                     )
-                    logger.info('Reduced QSVC training set to 400 samples')
+                    logger.info('Reduced QSVC training set to 100 samples')
 
-                if len(x_test_model) > 400:
+                if len(x_test_model) > 100:
                     x_test_model, _, y_test_model, _ = train_test_split(
                         x_test_model, y_test_model,
-                        train_size=400,
+                        train_size=100,
                         stratify=y_test_model,
                         random_state=42
                     )
-                    logger.info('Reduced QSVC test set to 400 samples')
-
-                # Apply PCA dimension reduction (ONLY for QSVC)
-                pca = PCA(n_components=4, random_state=42)
-                x_train_model = pca.fit_transform(x_train_model)
-                x_test_model = pca.transform(x_test_model)
-                logger.info('Applied PCA: reduced to 4 components for QSVC')
+                    logger.info('Reduced QSVC test set to 100 samples')
 
             logger.info('Using %s features',
                         'scaled' if model_name in MODELS_REQUIRING_SCALING else 'unscaled')

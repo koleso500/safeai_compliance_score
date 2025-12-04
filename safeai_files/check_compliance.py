@@ -78,22 +78,22 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
     model_name_spaced = ' '.join(re.findall(r'[A-Z]{2,}(?=[A-Z][a-z]|[A-Z]*$)|[A-Z][a-z]*', model_name))
 
     plt.figure(figsize=(6, 4))
-    plt.plot(x_rge, y_rge, marker='o', label=f"RGE Curve (AURGE = {rge_auc:.4f})")
+    plt.plot(x_rge, y_rge, marker='o', label=f'RGE Curve (AURGE = {rge_auc:.4f})')
     # Plot baseline only if not a Dummy model
-    if model_name not in ["DummyRegressor", "DummyClassifier"]:
+    if model_name not in ['DummyRegressor', 'DummyClassifier']:
         random_baseline = float(y_rge[-1])
         plt.axhline(random_baseline, color='red', linestyle='--',
-                    label=f"Random Baseline (RGE = {random_baseline:.2f})")
-    plt.xlabel("Fraction of Variables Removed")
-    plt.ylabel("RGE")
-    plt.title(f"{model_name_spaced} RGE Curve ({data_name})")
+                    label=f'Random Baseline (RGE = {random_baseline:.2f})')
+    plt.xlabel('Fraction of Variables Removed')
+    plt.ylabel('RGE')
+    plt.title(f'{model_name_spaced} RGE Curve ({data_name})')
     plt.legend()
     plt.grid(True)
 
     # Save the plot
-    model_name_clean = model_name_spaced.lower().replace(" ", "_")
-    data_name_clean = data_name.lower().replace(" ", "_")
-    filename_rge = f"{model_name_clean}_rge_{data_name_clean}.png"
+    model_name_clean = model_name_spaced.lower().replace(' ', '_')
+    data_name_clean = data_name.lower().replace(' ', '_')
+    filename_rge = f'{model_name_clean}_rge_{data_name_clean}.png'
 
     full_path_rge = os.path.join(save_path, filename_rge)
     plt.savefig(full_path_rge, dpi=300)
@@ -107,10 +107,10 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
 
     # Plot
     plt.figure(figsize=(6, 4))
-    plt.plot(normalized_t, rgr_scores, linestyle='-', label=f"RGR Curve (AURGR = {rgr_auc:.4f})")
+    plt.plot(normalized_t, rgr_scores, linestyle='-', label=f'RGR Curve (AURGR = {rgr_auc:.4f})')
     plt.title(f'{model_name_spaced} RGR Curve ({data_name})')
-    if model_name not in ["DummyRegressor", "DummyClassifier"]:
-        plt.axhline(0.5, color='red', linestyle='--', label=f"Random Baseline (RGR = 0.5)")
+    if model_name not in ['DummyRegressor', "DummyClassifier"]:
+        plt.axhline(0.5, color='red', linestyle='--', label=f'Random Baseline (RGR = 0.5)')
     plt.xlabel('Normalized Perturbation')
     plt.ylabel('RGR')
     plt.legend()
@@ -118,7 +118,7 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path):
     plt.grid(True)
 
     # Save the plot
-    filename_rgr = f"{model_name_clean}_rgr_{data_name_clean}.png"
+    filename_rgr = f'{model_name_clean}_rgr_{data_name_clean}.png'
     full_path_rgr = os.path.join(save_path, filename_rgr)
     plt.savefig(full_path_rgr, dpi=300)
     plt.close()
