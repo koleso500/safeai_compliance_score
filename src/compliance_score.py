@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from matplotlib.axes import Axes
 
-from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, PATHS, TOPSIS_IDEAL_VALUES, TOPSIS_WORST_VALUES
+from src.config import DATASET_CONFIG, MODELS_TO_TRAIN, PATHS
 from safeai_files.utils import plot_mean_histogram, plot_model_curves, plot_diff_mean_histogram
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -825,6 +825,37 @@ def calculate_topsis_ranking(val, ideal_values: dict, worst_values: dict, weight
         return None
 
 
+def generate_topsis_bounds(x_vect, y_vect, z_vect):
+    """
+    Automatically generate TOPSIS ideal and worst-case vectors
+    based on the lengths of x, y, and z.
+
+    x_vect: RGA curve
+    y_vect: RGE curve
+    z_vect: RGR curve
+
+    """
+    nx = len(x_vect)
+    ny = len(y_vect)
+    nz = len(z_vect)
+
+    # Ideal values (best case)
+    ideal = {
+        'x': [1.0] * nx,
+        'y': [1.0] + [0.0] * (ny - 1),
+        'z': [1.0] * nz,
+    }
+
+    # Worst values (worst case)
+    worst = {
+        'x': [0.0] * nx,
+        'y': list(np.linspace(1.0, 0.5, ny)),
+        'z': [1.0] + [0.0] * (nz - 1),
+    }
+
+    return ideal, worst
+
+
 def run_safeai_compliance_score(raw_vectors=None):
     """
     Main pipeline for SafeAI Compliance Score visualization and ranking.
@@ -949,12 +980,21 @@ def run_safeai_compliance_score(raw_vectors=None):
     # TOPSIS Ranking
     logger.info('TOPSIS Ranking')
 
+    first_model = next(iter(all_models_results.values()))
+    x_vect = first_model['data']['x_final']
+    y_vect = first_model['data']['y_final']
+    z_vect = first_model['data']['z_final']
+
+    ideal_values, worst_values = generate_topsis_bounds(x_vect, y_vect, z_vect)
+
+    logger.info('Generated TOPSIS ideal/worst values')
+
     ranking_df = None
     try:
         ranking_df = calculate_topsis_ranking(
             all_models_results,
-            ideal_values=TOPSIS_IDEAL_VALUES,
-            worst_values=TOPSIS_WORST_VALUES
+            ideal_values=ideal_values,
+            worst_values=worst_values
         )
 
         if ranking_df is not None and not ranking_df.empty:
