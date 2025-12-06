@@ -7,6 +7,7 @@ from safeai_files.utils import check_nan, convert_to_dataframe, find_yhat, valid
 from xgboost import XGBClassifier, XGBRegressor
 
 from safeai_files.core import rga
+from src.cramer import wrga_cramer
 
 
 def perturb(data: pd.DataFrame, 
@@ -154,7 +155,8 @@ def rgr_all(xtest: pd.DataFrame,
             perturbation_strategy: Literal['percentile_swap', 'gaussian_noise'] = 'percentile_swap',
             seed: int = None,
             scaler = None,
-            xtest_original: pd.DataFrame = None):
+            xtest_original: pd.DataFrame = None,
+            metric: str = 'original'):
     """
     Compute RANK GRADUATION Robustness (RGR) MEASURE for all variables simultaneously.
 
@@ -180,6 +182,9 @@ def rgr_all(xtest: pd.DataFrame,
         Use if features are scaled. Noise is added in original scale then re-scaled.
     xtest_original : pd.DataFrame
         Original unscaled test data. Required when scaler.
+    metric: str
+        'original': uses RGE
+        'cramer': uses WRGE
 
     Returns
     -------
@@ -187,6 +192,9 @@ def rgr_all(xtest: pd.DataFrame,
         The overall RGR value.
 
     """
+    if metric not in ['original', 'cramer']:
+        raise ValueError("Metric must be 'original' or 'cramer'")
+
     # Convert inputs to DataFrames and concatenate them
     xtest, yhat = convert_to_dataframe(xtest, yhat)
 
@@ -246,6 +254,9 @@ def rgr_all(xtest: pd.DataFrame,
     yhat_pert = find_yhat(model, xtest_pert)
 
     # Compute and return RGR value
-    return rga(yhat, yhat_pert)
+    if metric == "original":
+        return rga(yhat, yhat_pert)
+    else:  # "cramer"
+        return wrga_cramer(yhat, yhat_pert)
 
 

@@ -134,16 +134,16 @@ def partial_rga_with_curves(y: list, yhat: list, lower=0.0, upper=1.0, plot=True
     concord_y = np.insert(np.cumsum(ystar) / (n * sorted_y.mean()), 0, 0)
     x_concord = np.insert(np.linspace(1 / n, 1, n), 0, 0)
 
-    total_denom = np.trapz(dual_y - lorenz_y, x_concord)
+    total_denom = np.trapezoid(dual_y - lorenz_y, x_concord)
 
     # Slice
     mask = (x_concord >= lower) & (x_concord <= upper)
     x_slice = x_concord[mask]
-    num_slice = np.trapz((dual_y[mask] - concord_y[mask]), x_slice)
+    num_slice = np.trapezoid((dual_y[mask] - concord_y[mask]), x_slice)
     partial_rga_contribution = num_slice / total_denom
 
     # Local RGA
-    denom_slice = np.trapz(dual_y[mask] - lorenz_y[mask], x_slice)
+    denom_slice = np.trapezoid(dual_y[mask] - lorenz_y[mask], x_slice)
     rga_local = num_slice / denom_slice
 
     if plot:

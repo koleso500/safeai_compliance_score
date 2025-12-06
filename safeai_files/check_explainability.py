@@ -6,6 +6,7 @@ from safeai_files.utils import check_nan, convert_to_dataframe, find_yhat, manip
 from xgboost import XGBClassifier, XGBRegressor
 
 from safeai_files.core import rga
+from src.cramer import wrga_cramer
 
 def compute_rge_values(xtrain: pd.DataFrame, 
                 xtest: pd.DataFrame,
@@ -13,7 +14,8 @@ def compute_rge_values(xtrain: pd.DataFrame,
                 model: Union[XGBClassifier, XGBRegressor, BaseEstimator,
                 torch.nn.Module],
                 variables: list, 
-                group: bool = False):
+                group: bool = False,
+                metric: str = 'original'):
     """
     Helper function to compute the RGE values for given variables or groups of variables.
 
@@ -31,6 +33,9 @@ def compute_rge_values(xtrain: pd.DataFrame,
             A list of variables.
     group : bool
             If True, calculate RGE for the group of variables as a whole; otherwise, calculate for each variable.
+    metric: str
+            'original': uses RGE
+            'cramer': uses WRGE
 
     Returns
     -------
@@ -43,6 +48,10 @@ def compute_rge_values(xtrain: pd.DataFrame,
     check_nan(xtrain, xtest, yhat)
     # variables should be a list
     validate_variables(variables, xtrain)
+
+    if metric not in ['original', 'cramer']:
+        raise ValueError("Metric must be 'original' or 'cramer'")
+
     # find RGEs
     if group:
         # Apply manipulate_testdata iteratively for each variable in the group
@@ -51,9 +60,13 @@ def compute_rge_values(xtrain: pd.DataFrame,
         
         # Calculate yhat after manipulating all variables in the group
         yhat_rm = find_yhat(model, xtest)
-        
+
         # Calculate a single RGE for the entire group except these variables
-        rge = rga(yhat, yhat_rm)
+        if metric == "original":
+            rge = rga(yhat, yhat_rm)
+        else: # 'cramer'
+            rge = wrga_cramer(yhat, yhat_rm)
+
         return pd.DataFrame([rge], index=[str(variables)], columns=['RGE'])
 
     else:
@@ -62,7 +75,13 @@ def compute_rge_values(xtrain: pd.DataFrame,
         for variable in variables:
             xtest_rm = manipulate_testdata(xtrain, xtest, variable)
             yhat_rm = find_yhat(model, xtest_rm)
-            rge_list.append(1 - (rga(yhat, yhat_rm)))
+
+            if metric == "original":
+                rge_val = 1 - rga(yhat, yhat_rm)
+            else:  # "cramer"
+                rge_val = 1 - wrga_cramer(yhat, yhat_rm)
+
+            rge_list.append(rge_val)
         
         return pd.DataFrame(rge_list, index=variables, columns=['RGE']).sort_values(by='RGE', ascending=False)
 
