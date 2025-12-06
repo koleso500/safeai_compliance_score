@@ -135,29 +135,24 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path, 
     # Values for final compliance score
     # Accuracy
     num_steps = len(step_rges) - 1
-    step_rgas = []
-    thresholds_rga = np.linspace(1, 0, num_steps + 1)
 
-    for i in range(num_steps):
-        lower = float(thresholds_rga[i + 1])
-        upper = float(thresholds_rga[i])
+    if metric == 'original':
+        full_rga = partial_rga_with_curves(y_test, y_prob, lower=0, upper=1, plot=False)
+        step_rgas = []
+        thresholds_rga = np.linspace(1, 0, num_steps)
 
-        if metric == 'original':
-            partial = partial_rga_with_curves(
-                y_test, y_prob,
-                lower=lower, upper=upper,
-                plot=False
-            )
-        else:  # 'cramer'
-            partial = partial_wrga_cramer(
-                y_test, y_prob,
-                lower=lower, upper=upper
-            )
+        for i in range(num_steps - 1):
+            lower = float(thresholds_rga[i + 1])
+            upper = float(thresholds_rga[i])
+            partial = partial_rga_with_curves(y_test, y_prob, lower=lower, upper=upper, plot=False)
+            step_rgas.append(partial)
 
-        step_rgas.append(partial)
+        reverse_cumulative = np.cumsum(step_rgas[::-1])[::-1]
+        x_final = np.concatenate(([full_rga], reverse_cumulative, [0.])).tolist()
 
-    reverse_cumulative = np.cumsum(step_rgas[::-1])[::-1]
-    x_final = np.concatenate((reverse_cumulative, [0.])).tolist()
+    else:  # 'cramer'
+        result = partial_wrga_cramer(y_test, y_prob, n_segments=num_steps)
+        x_final = result['cumulative_vector']
 
     x_rga = np.linspace(0, 1, len(x_final))
     y_rga = np.array(x_final)
@@ -186,6 +181,10 @@ def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path, 
     num_steps_rgr = len(step_rges)
     thresholds_rgr = np.linspace(0, 0.5, num_steps_rgr)
     z_final = [rgr_all(x_test, y_prob, model, t, metric=metric) for t in thresholds_rgr]
+
+    print(len(x_final))
+    print(len(y_final))
+    print(len(z_final))
 
     return {
         'model_name': model.__class__.__name__,

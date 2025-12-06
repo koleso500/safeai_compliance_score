@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from scipy.stats import cramervonmises_2samp
 
@@ -108,57 +107,116 @@ def wrge_cramer(pred_full, pred_reduced):
 
 
 # Partial WRGA
-def partial_wrga_cramer(y, yhat, lower=0.0, upper=1.0):
+def partial_wrga_cramer(y, yhat, n_segments):
     """
-    Function for computing partial WRGA.
+    Decompose WRGA into partial contributions across segments.
+
+    Parameters:
+    -----------
+    y :
+        True values
+    yhat :
+        Predicted values
+    n_segments : int
+        Number of segments to decompose into
+
+    Returns:
+    --------
+    dict containing:
+        - 'full_wrga': The complete WRGA score
+        - 'partial_wrga': Partial WRGA contributions for each segment
+        - 'cumulative_vector': Cumulative vector [WRGA, WRGA-WRGA_1, ..., 0]
+        - 'segment_indices': List of index ranges for each segment
 
     """
-    y = np.asarray(y, float).reshape(-1)
-    yhat = np.asarray(yhat, float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    yhat = np.asarray(yhat, dtype=float).reshape(-1)
+    mask = ~np.isnan(y) & ~np.isnan(yhat)
+    y = y[mask]
+    yhat = yhat[mask]
 
-    df = pd.DataFrame({"y": y, "yhat": yhat})
-    df = df.dropna().reset_index(drop=True)
-    df["ryhat"] = df["yhat"].rank(method="min")
+    n = len(y)
+    if n == 0:
+        return {
+            'full_wrga': np.nan,
+            'partial_wrga': np.array([]),
+            'cumulative_vector': np.array([]),
+            'segment_indices': []
+        }
 
-    support = df.groupby("ryhat")["y"].mean().reset_index(name="support")
-    df = df.merge(support, on="ryhat", how="left")
-    df["rord"] = df["support"]
-    df = df.sort_values("yhat").reset_index(drop=True)
-    ystar = df["rord"].values
+    # Calculate full WRGA
+    full_wrga = wrga_cramer(y, yhat)
+    full_gini = gini_via_lorenz(y)
 
-    n = len(df)
-    sorted_y = np.sort(df["y"].values)
+    if not np.isfinite(full_wrga) or not np.isfinite(full_gini) or full_gini == 0:
+        return {
+            'full_wrga': full_wrga,
+            'partial_wrga': np.array([np.nan] * n_segments),
+            'cumulative_vector': np.array([np.nan] * (n_segments + 1)),
+            'segment_indices': []
+        }
 
-    # Lorenz curve
-    lorenz_y = np.insert(np.cumsum(sorted_y) / (n * sorted_y.mean()), 0, 0)
-    x_grid = np.insert(np.linspace(1/n, 1, n), 0, 0)
+    # Sort by predictions (descending - from highest to lowest ranked)
+    ord_yhat_desc = np.argsort(yhat)[::-1]
+    y_sorted = y[ord_yhat_desc]
+    yhat_sorted = yhat[ord_yhat_desc]
 
-    # Concordance curve
-    concord_y = np.insert(np.cumsum(ystar) / (n * sorted_y.mean()), 0, 0)
+    # Divide into n_segments
+    segment_size = n // n_segments
+    remainder = n % n_segments
 
-    uniform_y = x_grid.copy()
+    partial_wrga = []
+    segment_indices = []
 
-    integrand_num = np.abs(concord_y - lorenz_y)
-    integrand_den = np.abs(uniform_y - lorenz_y)
-    total_denom = np.trapezoid(integrand_den, x_grid)
+    start_idx = 0
+    for k in range(n_segments):
+        # Remainder across first segments
+        current_size = segment_size + (1 if k < remainder else 0)
+        end_idx = start_idx + current_size
 
-    if total_denom == 0:
-        return np.nan
+        segment_indices.append((start_idx, end_idx))
 
-    # Slice
-    mask = (x_grid >= lower) & (x_grid <= upper)
-    x_slice = x_grid[mask]
+        # Extract segment
+        y_segment = y_sorted[start_idx:end_idx]
+        yhat_segment = yhat_sorted[start_idx:end_idx]
 
-    num_slice = np.trapezoid(integrand_num[mask], x_slice)
-    den_slice = np.trapezoid(integrand_den[mask], x_slice)
+        # Calculate WRGA for this segment
+        segment_wrga = wrga_cramer(y_segment, yhat_segment)
 
-    if den_slice == 0:
-        return np.nan
+        # Weight by segment's contribution to total Gini
+        segment_gini = gini_via_lorenz(y_segment)
+        if np.isfinite(segment_gini) and segment_gini > 0:
+            # Normalize by segment size relative to total
+            weight = len(y_segment) / n
+            weighted_contribution = segment_wrga * segment_gini * weight / full_gini
+        else:
+            weighted_contribution = 0.0
 
-    partial_wrga_contribution = num_slice / total_denom
+        partial_wrga.append(weighted_contribution)
+        start_idx = end_idx
 
-    return partial_wrga_contribution
+    partial_wrga = np.array(partial_wrga)
 
+    # Normalize so sum equals full_wrga
+    sum_partial = np.sum(partial_wrga)
+    if sum_partial > 0:
+        partial_wrga = partial_wrga * (full_wrga / sum_partial)
+
+    # Build cumulative vector
+    cumulative_vector = np.zeros(n_segments + 1)
+    cumulative_vector[0] = full_wrga
+
+    cumsum = 0.0
+    for k in range(n_segments):
+        cumsum += partial_wrga[k]
+        cumulative_vector[k + 1] = full_wrga - cumsum
+
+    return {
+        'full_wrga': full_wrga,
+        'partial_wrga': partial_wrga,
+        'cumulative_vector': cumulative_vector,
+        'segment_indices': segment_indices
+    }
 
 
 # Cramer test
