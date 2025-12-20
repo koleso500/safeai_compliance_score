@@ -441,7 +441,7 @@ def evaluate_wrgr_multiclass_noise(model, x_data, prob_original, noise_levels,
     per_class_wrgr_list = []
 
     if verbose:
-        print(f'RGR EVALUATION: {model_name}')
+        print(f'RGR Evaluation: {model_name}')
         print(f'Testing {len(noise_levels)} noise levels')
 
     for i, sigma in enumerate(noise_levels):
@@ -627,7 +627,7 @@ def compare_models_wrgr(models_dict, noise_levels, class_order,
     if verbose:
         print('Robustness Comparison Summary')
         for name, score in zip(model_names, aurgr_scores):
-            print(f'{name:20s}: AURGR = {score:.4f}')
+            print(f'{name}: AURGR = {score:.4f}')
 
         if len(model_names) >= 2:
             best_idx = int(np.nanargmax(aurgr_scores))
@@ -636,7 +636,7 @@ def compare_models_wrgr(models_dict, noise_levels, class_order,
             best = aurgr_scores[best_idx]
             worst = aurgr_scores[worst_idx]
 
-            print(f'Best:  {model_names[best_idx]} (AURGR={best:.4f})')
+            print(f'Best: {model_names[best_idx]} (AURGR={best:.4f})')
             print(f'Worst: {model_names[worst_idx]} (AURGR={worst:.4f})')
 
     return results

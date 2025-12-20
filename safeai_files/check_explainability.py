@@ -311,7 +311,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
                                        model_class_order, class_order,
                                        model_type='sklearn', device=None,
                                        patch_size=32, batch_size=64,
-                                       class_weights=None, model_name='Model',
+                                       class_weights=None, model_name='Model', wrga_full=None,
                                        plot=True, fig_size=(10, 6), verbose=True,
                                        random_seed=None):
     """
@@ -347,6 +347,8 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
         Custom weights for each class
     model_name : str
         Name of model for display
+    wrga_full : float, optional
+        Full WRGA score for rescaling. If None, no rescaling is applied.
     plot : bool
         Whether to generate visualization
     fig_size : tuple, optional
@@ -460,13 +462,16 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     max_frac = np.max(removal_fractions)
     removal_norm = removal_fractions / max_frac if max_frac > 0 else removal_fractions
 
+    if wrga_full is not None and np.isfinite(wrga_full):
+        wrge_rescaled = wrge_scores * float(wrga_full)
+    else:
+        wrge_rescaled = wrge_scores
+
     # Calculate AURGE
-    aurge = auc(removal_norm, wrge_scores)
+    aurge = auc(removal_norm, wrge_rescaled)
 
     if verbose:
-        print("=" * 60)
         print(f"AURGE: {aurge:.4f}")
-        print("=" * 60)
 
     # Visualization
     if plot:
@@ -612,13 +617,13 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
         aurge_scores = np.array([results[name]['aurge'] for name in model_names])
 
         for name, score in zip(model_names, aurge_scores):
-            print(f"{name:20s}: AURGE = {score:.4f}")
+            print(f"{name}: AURGE = {score:.4f}")
 
         if len(model_names) >= 2:
             best_idx = int(np.nanargmax(aurge_scores))
             worst_idx = int(np.nanargmin(aurge_scores))
 
-            print(f"Best:  {model_names[best_idx]} (AURGE={aurge_scores[best_idx]:.4f})")
+            print(f"Best: {model_names[best_idx]} (AURGE={aurge_scores[best_idx]:.4f})")
             print(f"Worst: {model_names[worst_idx]} (AURGE={aurge_scores[worst_idx]:.4f})")
 
     return results

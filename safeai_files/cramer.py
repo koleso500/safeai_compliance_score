@@ -527,40 +527,20 @@ def evaluate_wrga_multiclass(y_labels, prob_matrix, class_order=None, n_segments
 
     # Visualization
     if plot:
-        fig, axes = plt.subplots(1, 2, figsize=fig_size)
+        plt.figure(figsize=fig_size)
+        plt.plot(x_axis, cumulative_vector, marker='o', linewidth=2.5, markersize=6, color='steelblue',
+            label=f'{model_name} (AURGA={aurga:.3f})'
+        )
 
-        # Plot 1: Cumulative WRGA Curve
-        ax1 = axes[0]
-        ax1.plot(x_axis, cumulative_vector, marker='o', linewidth=2.5,
-                 color='steelblue', markersize=6, label=f'AURGA={aurga:.3f}')
-        ax1.fill_between(x_axis, 0, cumulative_vector, alpha=0.2, color='steelblue')
-        ax1.set_xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
-        ax1.set_ylabel('RGA Score', fontsize=11, fontweight='bold')
-        ax1.set_title(f'RGA Curve: {model_name}', fontsize=12, fontweight='bold')
-        ax1.grid(alpha=0.3, linestyle='--')
-        ax1.set_xlim([0, 1])
-        ax1.set_ylim([0, max(cumulative_vector) * 1.1])
-        ax1.legend(fontsize=10)
-
-        # Plot 2: Per-Class WRGA Bar Chart
-        ax2 = axes[1]
-        class_labels = [f'Class {c}' for c in classes_used]
-        cmap = plt.get_cmap('Set3')
-        colors = cmap(np.linspace(0, 1, len(class_labels)))
-
-        bars = ax2.bar(class_labels, wrga_per_class, color=colors,
-                       edgecolor='black', linewidth=1.2, alpha=0.8)
-        ax2.set_ylabel('RGA Score', fontsize=11, fontweight='bold')
-        ax2.set_title('Per-Class RGA Scores', fontsize=12, fontweight='bold')
-        ax2.grid(axis='y', alpha=0.3, linestyle='--')
-        ax2.set_ylim([0, 1])
-
-        # Add value labels on bars
-        for bar, val in zip(bars, wrga_per_class):
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width() / 2., height,
-                     f'{val:.3f}', ha='center', va='bottom', fontsize=9)
-
+        plt.fill_between(x_axis,0, cumulative_vector, alpha=0.2, color='steelblue')
+        plt.xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
+        plt.ylabel('RGA Score', fontsize=11, fontweight='bold')
+        plt.title('RGA Robustness Curve', fontsize=12, fontweight='bold')
+        plt.grid(alpha=0.3, linestyle='--')
+        plt.xlim([0, 1])
+        max_val = np.nanmax(cumulative_vector)
+        plt.ylim([0, max_val * 1.1 if np.isfinite(max_val) else 1])
+        plt.legend(fontsize=10)
         plt.tight_layout()
         plt.show()
 
@@ -616,57 +596,33 @@ def compare_models_wrga(models_dict, y_labels, n_segments=10,
         results[model_name] = result
 
     # Comparison plot
-    fig, axes = plt.subplots(1, 2, figsize=fig_size)
+    plt.figure(figsize=fig_size)
 
-    # Cumulative WRGA curves
-    ax1 = axes[0]
     cmap = plt.get_cmap('tab10')
-    colors = cmap(np.linspace(0, 1, len(models_dict)))
+    colors = cmap(np.linspace(0, 1, len(results)))
 
     for (model_name, result), color in zip(results.items(), colors):
         x_axis = np.linspace(0, 1, len(result['cumulative_vector']))
-        ax1.plot(x_axis, result['cumulative_vector'], marker='o',
-                 linewidth=2.5, label=f"{model_name} (AURGA={result['aurga']:.3f})",
-                 color=color, markersize=5)
-
-    ax1.set_xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
-    ax1.set_ylabel('RGA Score', fontsize=11, fontweight='bold')
-    ax1.set_title('RGA Curve Comparison', fontsize=12, fontweight='bold')
-    ax1.grid(alpha=0.3, linestyle='--')
-    ax1.set_xlim([0, 1])
-    ax1.legend(fontsize=9)
-
-    # Overall WRGA comparison
-    ax2 = axes[1]
-    model_names = list(results.keys())
-    wrga_scores = [results[name]['wrga_full'] for name in model_names]
-    aurga_scores = [results[name]['aurga'] for name in model_names]
-
-    x_pos = np.arange(len(model_names))
-    width = 0.35
-
-    bars1 = ax2.bar(x_pos - width / 2, wrga_scores, width, label='WRGA',
-                    color='steelblue', edgecolor='black', linewidth=1.2)
-    bars2 = ax2.bar(x_pos + width / 2, aurga_scores, width, label='AURGA',
-                    color='coral', edgecolor='black', linewidth=1.2)
-
-    ax2.set_ylabel('Score', fontsize=11, fontweight='bold')
-    ax2.set_title('Overall Performance Comparison', fontsize=12, fontweight='bold')
-    ax2.set_xticks(x_pos)
-    ax2.set_xticklabels(model_names, rotation=45, ha='right')
-    ax2.legend(fontsize=10)
-    ax2.grid(axis='y', alpha=0.3, linestyle='--')
-    ax2.set_ylim([0, 1])
-
-    # Add value labels
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width() / 2., height,
-                     f'{height:.3f}', ha='center', va='bottom', fontsize=8)
-
+        plt.plot(x_axis, result['cumulative_vector'], "-o", linewidth=2.5, markersize=5,
+            color=color, label=f"{model_name} (AURGA={result['aurga']:.3f})"
+        )
+    plt.xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
+    plt.ylabel('RGA Score', fontsize=11, fontweight='bold')
+    plt.title('RGA Curve Comparison', fontsize=12, fontweight='bold')
+    plt.grid(alpha=0.3, linestyle="--")
+    plt.xlim([0, 1])
+    plt.legend(fontsize=9)
     plt.tight_layout()
     plt.show()
+
+    if verbose:
+        model_names = list(results.keys())
+        aurga_scores = [results[n]['aurga'] for n in model_names]
+        wrga_scores = [results[n]['rga_full'] for n in model_names]
+
+        print('RGA Comparison Summary')
+        for n, w, a in zip(model_names, wrga_scores, aurga_scores):
+            print(f'{n}: RGA={w:.4f}, AURGA={a:.4f}')
 
     return results
 
