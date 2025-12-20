@@ -485,7 +485,7 @@ def evaluate_wrgr_multiclass_noise(model, x_data, prob_original, noise_levels,
         per_class_wrgr_list.append(wrgr_per_class)
 
         if verbose and i % max(1, len(noise_levels) // 5) == 0:
-            print(f"  σ = {sigma:.3f}: RGR = {wrgr_scores[-1]:.4f}")
+            print(f"σ = {sigma:.3f}: RGR = {wrgr_scores[-1]:.4f}")
 
     wrgr_scores = np.array(wrgr_scores)
     per_class_wrgr_list = np.array(per_class_wrgr_list)
@@ -514,9 +514,9 @@ def evaluate_wrgr_multiclass_noise(model, x_data, prob_original, noise_levels,
                  label=f'{model_name} (AURGR={aurgr:.3f})')
         plt.fill_between(noise_levels * 100, 0, wrgr_rescaled,
                          alpha=0.2, color='steelblue')
-        plt.xlabel('Noise Standard Deviation (σ) × 100', fontsize=11, fontweight='bold')
+        plt.xlabel('Noise Standard Deviation', fontsize=11, fontweight='bold')
         plt.ylabel('RGR Score', fontsize=11, fontweight='bold')
-        plt.title(f'RGR Robustness Curve: {model_name}', fontsize=12, fontweight='bold')
+        plt.title(f'RGR Curve: {model_name}', fontsize=12, fontweight='bold')
         plt.grid(alpha=0.3, linestyle='--')
         plt.xlim([0, noise_levels[-1] * 100])
         plt.ylim([0, max(wrgr_rescaled) * 1.1 if max(wrgr_rescaled) > 0 else 1])
@@ -617,7 +617,7 @@ def compare_models_wrgr(models_dict, noise_levels, class_order,
 
     plt.xlabel('Noise Standard Deviation', fontsize=11, fontweight='bold')
     plt.ylabel('RGR Score', fontsize=11, fontweight='bold')
-    plt.title('RGR Robustness Comparison', fontsize=12, fontweight='bold')
+    plt.title('RGR Curves Comparison', fontsize=12, fontweight='bold')
     plt.grid(alpha=0.3, linestyle='--')
     plt.xlim([0, float(np.max(noise_levels)) * 100])
     plt.legend(fontsize=9)

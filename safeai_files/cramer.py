@@ -515,7 +515,7 @@ def evaluate_wrga_multiclass(y_labels, prob_matrix, class_order=None, n_segments
 
     # Print results
     if verbose:
-        print(f'WRGA EVALUATION: {model_name}')
+        print(f'WRGA Evaluation: {model_name}')
         print(f'Full RGA: {wrga_full:.4f}')
         print(f'AURGA: {aurga:.4f}')
         print(f'\nClass order: {classes_used}')
@@ -535,7 +535,7 @@ def evaluate_wrga_multiclass(y_labels, prob_matrix, class_order=None, n_segments
         plt.fill_between(x_axis,0, cumulative_vector, alpha=0.2, color='steelblue')
         plt.xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
         plt.ylabel('RGA Score', fontsize=11, fontweight='bold')
-        plt.title('RGA Robustness Curve', fontsize=12, fontweight='bold')
+        plt.title('RGA Curve', fontsize=12, fontweight='bold')
         plt.grid(alpha=0.3, linestyle='--')
         plt.xlim([0, 1])
         max_val = np.nanmax(cumulative_vector)
@@ -608,7 +608,7 @@ def compare_models_wrga(models_dict, y_labels, n_segments=10,
         )
     plt.xlabel('Fraction of Data Removed', fontsize=11, fontweight='bold')
     plt.ylabel('RGA Score', fontsize=11, fontweight='bold')
-    plt.title('RGA Curve Comparison', fontsize=12, fontweight='bold')
+    plt.title('RGA Curves Comparison', fontsize=12, fontweight='bold')
     plt.grid(alpha=0.3, linestyle="--")
     plt.xlim([0, 1])
     plt.legend(fontsize=9)

@@ -371,7 +371,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     removal_fractions = np.asarray(removal_fractions)
 
     if verbose:
-        print(f'WRGE Evaluation: {model_name}')
+        print(f'RGE Evaluation: {model_name}')
         print(f'Testing {len(removal_fractions)} removal fractions')
 
     # Get image dimensions
@@ -413,7 +413,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
 
     for frac in removal_fractions:
         if verbose:
-            print(f'\nProcessing removal fraction: {frac * 100:.0f}%')
+            print(f"\nProcessing occlusion level: {frac * 100:.0f}%")
 
         pixels_to_remove = int(frac * total_pixels)
         num_patches = pixels_to_remove // patch_pixels
@@ -450,7 +450,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
         per_class_wrge_list.append(wrge_per_class)
 
         if verbose:
-            print(f'WRGE = {wrge_scores[-1]:.4f}')
+            print(f'Original RGE = {wrge_scores[-1]:.4f}')
 
         del prob_occluded
         gc.collect()
@@ -476,17 +476,17 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     # Visualization
     if plot:
         plt.figure(figsize=fig_size)
-        plt.plot(removal_fractions * 100, wrge_scores, '-o', linewidth=2.5,
+        plt.plot(removal_fractions * 100, wrge_rescaled, '-o', linewidth=2.5,
                  markersize=6, color='forestgreen',
                  label=f'{model_name} (AURGE={aurge:.3f})')
-        plt.fill_between(removal_fractions * 100, 0, wrge_scores,
+        plt.fill_between(removal_fractions * 100, 0, wrge_rescaled,
                          alpha=0.2, color='forestgreen')
-        plt.xlabel('% Pixels Removed', fontsize=11, fontweight='bold')
+        plt.xlabel('Occluded Image Area', fontsize=11, fontweight='bold')
         plt.ylabel('RGE Score', fontsize=11, fontweight='bold')
-        plt.title(f'RGE Occlusion Curve: {model_name}', fontsize=12, fontweight='bold')
+        plt.title(f'RGE Curve: {model_name}', fontsize=12, fontweight='bold')
         plt.grid(alpha=0.3, linestyle='--')
         plt.xlim([0, removal_fractions[-1] * 100])
-        max_score = max(wrge_scores) if len(wrge_scores) > 0 else 1
+        max_score = max(wrge_rescaled) if len(wrge_rescaled) > 0 else 1
         plt.ylim([0, max_score * 1.1])
         plt.legend(fontsize=10)
         plt.tight_layout()
@@ -498,6 +498,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
 
     return {
         'wrge_scores': wrge_scores,
+        'wrge_rescaled': wrge_rescaled,
         'aurge': aurge,
         'removal_fractions': removal_fractions,
         'per_class_wrge': per_class_wrge_list,
@@ -595,7 +596,7 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
     for (model_name, result), color in zip(results.items(), colors):
         plt.plot(
             result['removal_fractions'] * 100,
-            result['wrge_scores'],
+            result['wrge_rescaled'],
             '-o',
             linewidth=2.5,
             markersize=5,
@@ -603,9 +604,9 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
             label=f"{model_name} (AURGE={result['aurge']:.3f})"
         )
 
-    plt.xlabel('% Pixels Removed', fontsize=11, fontweight='bold')
-    plt.ylabel('WRGE Score', fontsize=11, fontweight='bold')
-    plt.title('WRGE Occlusion Comparison', fontsize=12, fontweight='bold')
+    plt.xlabel('Occluded Image Area', fontsize=11, fontweight='bold')
+    plt.ylabel('RGE Score', fontsize=11, fontweight='bold')
+    plt.title('RGE Curves Comparison', fontsize=12, fontweight='bold')
     plt.grid(alpha=0.3, linestyle='--')
     plt.xlim([0, removal_fractions[-1] * 100])
     plt.legend(fontsize=9)
