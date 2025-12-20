@@ -305,7 +305,7 @@ def apply_patch_occlusion(images, num_patches, patch_size=32, random_seed=None):
     return images_occluded
 
 
-#WRGE Evaluation
+# WRGE Evaluation
 def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
                                        images_dataset, removal_fractions,
                                        model_class_order, class_order,
@@ -508,6 +508,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
 def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
                         images_dataset, removal_fractions, class_order,
                         patch_size=32, batch_size=64, class_weights=None,
+                        wrga_dict=None,
                         device=None, fig_size=(12, 6), verbose=True,
                         random_seed=None):
     """
@@ -541,6 +542,8 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
         Batch size for processing
     class_weights : array-like, optional
         Class weights for all models
+    wrga_dict : dict, optional
+        Dictionary mapping model names to WRGA scores for rescaling
     device : torch.device
         Device for computation
     fig_size : tuple, optional
@@ -576,6 +579,7 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
             batch_size=batch_size,
             class_weights=class_weights,
             model_name=model_name,
+            wrga_full=wrga_dict.get(model_name) if wrga_dict else None,
             plot=False,
             verbose=verbose,
             random_seed=random_seed
