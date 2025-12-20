@@ -618,7 +618,7 @@ def compare_models_wrga(models_dict, y_labels, n_segments=10,
     if verbose:
         model_names = list(results.keys())
         aurga_scores = [results[n]['aurga'] for n in model_names]
-        wrga_scores = [results[n]['rga_full'] for n in model_names]
+        wrga_scores = [results[n]['wrga_full'] for n in model_names]
 
         print('RGA Comparison Summary')
         for n, w, a in zip(model_names, wrga_scores, aurga_scores):
