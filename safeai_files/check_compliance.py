@@ -7,7 +7,7 @@ from sklearn.metrics import auc
 from safeai_files.check_explainability import compute_rge_values
 from safeai_files.check_robustness import rgr_all
 from safeai_files.core import partial_rga_with_curves, rga
-from src.cramer import wrga_cramer, partial_wrga_cramer
+from safeai_files.cramer import wrga_cramer, partial_wrga_cramer
 
 
 def safeai_values(x_train, x_test, y_test, y_prob, model, data_name, save_path, metric: str = 'original'):
