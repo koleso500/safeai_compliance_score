@@ -515,7 +515,7 @@ def evaluate_wrga_multiclass(y_labels, prob_matrix, class_order=None, n_segments
 
     # Print results
     if verbose:
-        print(f'WRGA Evaluation: {model_name}')
+        print(f'RGA Evaluation: {model_name}')
         print(f'Full RGA: {wrga_full:.4f}')
         print(f'AURGA: {aurga:.4f}')
         print(f'\nClass order: {classes_used}')

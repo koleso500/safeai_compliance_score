@@ -159,8 +159,8 @@ def wrge_cramer_multiclass(prob_full, prob_reduced, class_weights=None, verbose=
     return wrge_weighted, wrges, class_weights
 
 
-def extract_features_from_images(images, feature_extractor, pca, scaler,
-                                 device, batch_size=64):
+def extract_features_from_images(images, feature_extractor, pca=None, scaler=None,
+                                 device=None, batch_size=64):
     """
     Extract and transform features from images.
 
@@ -170,11 +170,11 @@ def extract_features_from_images(images, feature_extractor, pca, scaler,
         Input images
     feature_extractor : torch.nn.Module
         Feature extraction model (e.g., ResNet)
-    pca : sklearn PCA
-        Fitted PCA transformer
-    scaler : sklearn StandardScaler
-        Fitted scaler
-    device : torch.device
+    pca : sklearn-like or None
+        Must implement .transform(x). If None, PCA is skipped.
+    scaler : sklearn-like StandardScaler
+        Must implement .transform(x). If None, scaling is skipped.
+    device : torch.device or None
         Device for computation
     batch_size : int
         Batch size for processing
@@ -186,26 +186,32 @@ def extract_features_from_images(images, feature_extractor, pca, scaler,
     """
     feature_extractor.eval()
 
+    if device is None:
+        device = next(feature_extractor.parameters()).device
+
     features_list = []
 
     with torch.no_grad():
         for i in range(0, len(images), batch_size):
-            batch = images[i:i + batch_size].to(device)
+            batch = images[i:i + batch_size].to(device, non_blocking=True)
             features = feature_extractor(batch).cpu().numpy()
             features_list.append(features)
             del batch, features
             gc.collect()
 
-    features = np.vstack(features_list)
+    x = np.vstack(features_list)
     del features_list
+    gc.collect()
 
-    # Apply PCA and scaling
-    features_pca = pca.transform(features)
-    del features
-    features_scaled = scaler.transform(features_pca)
-    del features_pca
+    # PCA
+    if pca is not None:
+        x = pca.transform(x)
 
-    return features_scaled
+    # Scaling
+    if scaler is not None:
+        x = scaler.transform(x)
+
+    return x
 
 
 def get_predictions_from_features(features, model, model_class_order,
@@ -306,8 +312,7 @@ def apply_patch_occlusion(images, num_patches, patch_size=32, random_seed=None):
 
 
 # WRGE Evaluation
-def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
-                                       images_dataset, removal_fractions,
+def evaluate_wrge_multiclass_occlusion(model, preprocess_fn, images_dataset, removal_fractions,
                                        model_class_order, class_order,
                                        model_type='sklearn', device=None,
                                        patch_size=32, batch_size=64,
@@ -321,12 +326,10 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     ----------
     model : sklearn or PyTorch model
         Trained classifier to evaluate
-    feature_extractor : torch.nn.Module
-        Feature extraction model (e.g., ResNet)
-    pca : sklearn PCA
-        Fitted PCA transformer
-    scaler : sklearn StandardScaler
-        Fitted scaler
+    preprocess_fn :
+        Function that maps images to model-specific feature representations.
+        This allows each model to define its own image-to-feature pipeline
+        (e.g., PCA-based, amplitude-based).
     images_dataset : torch.utils.data.Dataset
         Images
     removal_fractions : array-like
@@ -396,9 +399,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     del images_list, dataloader
     gc.collect()
 
-    features_original = extract_features_from_images(
-        images_all, feature_extractor, pca, scaler, device, batch_size
-    )
+    features_original = preprocess_fn(images_all)
 
     prob_original = get_predictions_from_features(
         features_original, model, model_class_order, class_order,
@@ -424,9 +425,8 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
         )
 
         # Extract features from occluded images
-        features_occluded = extract_features_from_images(
-            images_occluded, feature_extractor, pca, scaler, device, batch_size
-        )
+        features_occluded = preprocess_fn(images_occluded)
+
         del images_occluded
         gc.collect()
 
@@ -506,8 +506,7 @@ def evaluate_wrge_multiclass_occlusion(model, feature_extractor, pca, scaler,
     }
 
 
-def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
-                        images_dataset, removal_fractions, class_order,
+def compare_models_wrge(models_dict, images_dataset, removal_fractions, class_order,
                         patch_size=32, batch_size=64, class_weights=None,
                         wrga_dict=None,
                         device=None, fig_size=(12, 6), verbose=True,
@@ -525,12 +524,6 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
             'RF': (rf_model, rf.classes_, 'sklearn'),
             'VQC': (vqc_model, np.array([0,1,2]), 'pytorch')
         }
-    feature_extractor : torch.nn.Module
-        Feature extraction model (shared across all models)
-    pca : sklearn PCA
-        Fitted PCA transformer (shared)
-    scaler : sklearn StandardScaler
-        Fitted scaler (shared)
     images_dataset : torch.utils.data.Dataset
         Images
     removal_fractions : array-like
@@ -561,15 +554,13 @@ def compare_models_wrge(models_dict, feature_extractor, pca, scaler,
     """
     results = {}
 
-    for model_name, (model, model_class_order, model_type) in models_dict.items():
+    for model_name, (model, preprocess_fn, model_class_order, model_type) in models_dict.items():
         if verbose:
             print(f'\nEvaluating {model_name}')
 
         result = evaluate_wrge_multiclass_occlusion(
             model=model,
-            feature_extractor=feature_extractor,
-            pca=pca,
-            scaler=scaler,
+            preprocess_fn=preprocess_fn,
             images_dataset=images_dataset,
             removal_fractions=removal_fractions,
             model_class_order=model_class_order,
